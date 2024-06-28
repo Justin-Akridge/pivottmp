@@ -1,0 +1,11 @@
+[
+    "tempfiltered.las",
+    {
+        "type":"filters.hag_delaunay"
+    },
+    {
+        "type":"writers.las",
+        "filename":"heights.las",
+        "extra_dims":"HeightAboveGround=float32"
+    }
+]

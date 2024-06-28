@@ -1,0 +1,20 @@
+{
+    "pipeline": [
+        {
+            "type": "readers.las",
+            "filename": "filtered.las"
+        },
+        {
+            "type":"filters.hag_delaunay"
+        },
+        {
+            "type": "filters.assign",
+            "value": "HeightAboveGround = HeightAboveGround * 3.28084"
+        },
+        {
+            "type":"writers.las",
+            "filename":"clasblock1.las",
+            "extra_dims":"HeightAboveGround=float32"
+        }
+    ]
+}

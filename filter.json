@@ -1,0 +1,21 @@
+{
+  "pipeline": [
+    {
+      "type": "readers.las",
+      "filename": "classified_0.las"
+    },
+    {
+      "type": "filters.sample",
+      "radius": 0.2
+    },
+    {
+        "type":"filters.hag_delaunay"
+    },
+    {
+        "type":"writers.las",
+        "filename":"heights.las",
+        "extra_dims":"HeightAboveGround=float32"
+    }
+  ]
+}
+
