@@ -6,6 +6,7 @@ let segments = path.split('/');
 let id = segments.pop(); 
 
 let markers = []
+let distanceOverlays = []
 let paths = []
 let polylines = []
 let selectedMarker = null;
@@ -32,15 +33,17 @@ export async function initMap(coords) {
 
   const map = new google.maps.Map(document.getElementById("map"), mapOptions);
   const poleLocations = await loadPolePositions(id);
-  const wirePaths = await loadWirePaths(id);
+  paths = await loadMidspans(id);
 
   poleLocations.forEach(location => {
     initializeMarker(location, map);
   })
 
-  wirePaths.forEach(item => {
-    createNewPath(item[0], item[1], map)
-  })
+  if (paths.length > 0) {
+    paths.forEach(path => {
+      createPolyline(path, map)
+    })
+  }
 
   if (markers.length > 0) {
     const bounds = new google.maps.LatLngBounds();
@@ -127,7 +130,6 @@ function handlePegmanDrag() {
   }
 }
 
-let numberOverlays = [];
 function initializeMarker(location, map) {
   //let locationLatLng = localToGeographic(location.geoPosition.x, location.geoPosition.y);
   const position = new google.maps.LatLng(location.mapPosition.lng, location.mapPosition.lat);
@@ -140,7 +142,7 @@ function initializeMarker(location, map) {
     position: position,
     map: map,
     selected: false,
-    icon: MarkerIcon('aerial', true),
+    icon: MarkerIcon('aerial', false),
     draggable: false,
   };
 
@@ -148,11 +150,11 @@ function initializeMarker(location, map) {
   marker.addListener('click', (e) => handleMarkerClick(marker, map));
   marker.addListener('dblclick', (e) => handleMarkerDblClick(marker, map));
   markers.push(marker);
-  
-  const overlay = addNumberOverlayForMarkers(marker, markers.length, map);
-  numberOverlays.push(overlay)
 }
 
+//let numberOverlays = [];
+//const overlay = addNumberOverlayForMarkers(marker, markers.length, map);
+//numberOverlays.push(overlay)
 function addNumberOverlayForMarkers(marker, number, map) {
     const overlay = new google.maps.OverlayView();
     overlay.onAdd = function () {
@@ -185,9 +187,12 @@ function addNumberOverlayForMarkers(marker, number, map) {
     return overlay;
 }
 
-async function loadWirePaths(id) {
+async function loadMidspans(id) {
   try {
-    const response = await fetch('/paths.json');
+    const response = await fetch(`/midspans/${id}`);
+    if (!response.ok) {
+      throw new Error("Failed to fetch midspans");
+    }
     const data = await response.json();
     return data;
 	} catch (error) {
@@ -217,7 +222,7 @@ const MarkerIcon = (markerType, isSelected) => {
   if (markerType === 'aerial') {
     const scale = 6;
     const color = "red"
-    const opacity = isSelected ? 1 : 0.3;
+    const opacity = isSelected ? 1 : 1;
     const glowColor = isSelected ? 'gold' : '';
 
     const svg = `
@@ -273,45 +278,92 @@ const MarkerIcon = (markerType, isSelected) => {
   }
 };
 
-function createNewPath(firstLoc, secondLoc, map) {
-  let firstPole = null; 
-  let secondPole = null;
-  
-  markers.forEach(marker => {
-    if (marker.geoPosition['x'] === firstLoc['x'] && marker.geoPosition['y'] === firstLoc['y']) {
-      firstPole = marker;
-    }
+function checkIfPathExists(newPath) {
+  let newFirst = newPath[0]
+  let newSecond = newPath[1];
+  return paths.some(midspan => {
+    let firstPole = midspan.path.map[0];
+    let secondPole = midspan.path.map[1];
 
-    if (marker.geoPosition['x'] === secondLoc['x'] && marker.geoPosition['y'] === secondLoc['y']) {
-      secondPole = marker;
-    }
-  })
+    return ((newFirst.lat === firstPole.lat && 
+         newFirst.lng === firstPole.lng &&
+         newSecond.lat === secondPole.lat &&
+         newSecond.lng === secondPole.lng) ||
+        (newFirst.lat === secondPole.lat && 
+         newFirst.lng === secondPole.lng &&
+         newSecond.lat === firstPole.lat &&
+         newSecond.lng === firstPole.lng))
+  }) 
+}
 
-  const path = [firstPole.position, secondPole.position];
-  const newPath = [firstPole, secondPole];
-  paths.push(newPath);
+function createNewPath(firstPole, secondPole, map) {
+  const path = {
+    map: [firstPole.position, secondPole.position],
+    geo: [firstPole.geoPosition, secondPole.geoPosition],
+  }
+
+  if (checkIfPathExists(path.map)) {
+    console.log('path exists')
+    return;
+  } else {
+    console.log('path does not exists')
+  }
+
+  const midspan = {
+    path: path,
+    strokeColor: 'limegreen',
+    strokeWeight: 3,
+    type: 'aerial',
+  }
+
+  paths.push(midspan);
 
   let color = 'limegreen';
   const polyline = new google.maps.Polyline({
-    path: path,
+    path: path.map,
     map: map,
     strokeColor: color,
     strokeWeight: 3
   });
 
-  createOverlayForPolyline(path, polyline, map);
+  createOverlayForPolyline(path.map, polyline, map);
   polylines.push(polyline);
+}
+
+function createPolyline(path, map) {
+  console.log(path)
+  const polyline = new google.maps.Polyline({
+    path: path.path.map,
+    map: map,
+    strokeColor: path.strokeColor,
+    strokeWeight: path.strokeWeight,
+    type: path.type
+  });
+  createOverlayForPolyline(path.path.map, polyline, map);
+  polylines.push(polyline);
+}
+
+function getLatLng(point) {
+  if (typeof point.lat === 'function' && typeof point.lng === 'function') {
+    return { lat: point.lat(), lng: point.lng() };
+  } else {
+    return { lat: point.lat, lng: point.lng };
+  }
 }
 
 function createOverlayForPolyline(path, polyline, map) {
   path.slice(0, -1).forEach((point, index) => {
-    const start = new google.maps.LatLng(point.lat, point.lng);
-    const end = new google.maps.LatLng(path[index + 1].lat, path[index + 1].lng);
+    const startLatLng = getLatLng(point);
+    const endLatLng = getLatLng(path[index + 1]);
+
+    const start = new google.maps.LatLng(startLatLng.lat, startLatLng.lng);
+    const end = new google.maps.LatLng(endLatLng.lat, endLatLng.lng);
+
     const distanceMeters = google.maps.geometry.spherical.computeDistanceBetween(start, end);
     const distanceFeet = distanceMeters * 3.28084;
     const middlePoint = {
-      lat: (point.lat + path[index + 1].lat) / 2,
-      lng: (point.lng + path[index + 1].lng) / 2
+      lat: (startLatLng.lat + endLatLng.lat) / 2,
+      lng: (startLatLng.lng + endLatLng.lng) / 2
     };
 
     const overlay = new google.maps.OverlayView();
@@ -343,10 +395,9 @@ function createOverlayForPolyline(path, polyline, map) {
 
     overlay.setMap(map);
     polyline.overlay = overlay;
-    polylines.push(polyline);
+    distanceOverlays.push(overlay);
   });
 }
-
 
 //angles for map
 const angleRight = document.querySelector('.fa-angle-right');
@@ -387,19 +438,39 @@ function openViewer() {
   renderArea.style.display = 'block';
 }
 
+let currMarker = null;
 function handleMarkerClick(marker, map) {
-  const geoPosition = marker.geoPosition;
-  targetTo(viewer, new THREE.Vector3(geoPosition.x, geoPosition.y, geoPosition.z), 0.02);
+  if (routeToolActive) {
+    marker.setIcon(MarkerIcon('aerial', true))
+    if (!currMarker) {
+      currMarker = marker;
+    } else if (currMarker === marker) {
+      return; 
+    } else {
+      createNewPath(marker, currMarker, map);
+      currMarker = marker;
+    }
 
-  if (arrowIsDisplayed) {
-    return;
   } else {
-    angleRight.style.display = 'flex';
-    arrowIsDisplayed = true;
+    if (currMarker) {
+      currMarker.setIcon(MarkerIcon('aerial', false))
+    }
+    marker.setIcon(MarkerIcon('aerial', true))
+    currMarker = marker;
+    const geoPosition = marker.geoPosition;
+    targetTo(viewer, new THREE.Vector3(geoPosition.x, geoPosition.y, geoPosition.z), 0.02);
+    
+    if (arrowIsDisplayed) {
+      return;
+    } else {
+      angleRight.style.display = 'flex';
+      arrowIsDisplayed = true;
+    }
   }
 }
 
 function handleMarkerDblClick(marker) {
+  if (routeToolActive) return;
   poleInformationBoxOpen = true; 
   poleInformation.style.display = 'block'
 
@@ -412,6 +483,9 @@ function handleMarkerDblClick(marker) {
 document.addEventListener('keyup', function(event) {
   if (event.key === 'Escape' || event.keyCode === 27) {
     selectedMarker = null;
+    markers.forEach(marker => {
+      marker.setIcon(MarkerIcon('aerial', false))
+    })
     if (poleInformationBoxOpen) {
       poleInformation.style.display = 'none'
       poleInformationBoxOpen = false; 
@@ -476,7 +550,17 @@ const vegetationTool = document.querySelector('.vegetation-tool');
 vegetationTool.addEventListener('click', toggleVegetationTool);
 
 function toggleVegetationTool() {
+  if (paths.length === 0) {
+    alert('Midspans must first be save to generate vegetation encroachments!')
+  }
   vegetationToolActive = !vegetationToolActive;
+  if (vegetationToolActive) {
+    vegetationTool.style.border = '1px solid blue'
+  } else {
+    vegetationTool.style.border = 'none'
+    vegetationTool.style.borderBottom = '1px solid black'
+  }
+
 
   if (vegetationToolActive) {
     fetchVegetationEncroachments()
@@ -492,8 +576,6 @@ function displayVegetationEncroachments() {
   } else {
     //add markers to map and scene
   }
-  
-  
 }
 
 function removeVegetationEncroachments() {
@@ -503,7 +585,6 @@ function removeVegetationEncroachments() {
     // remove markers and annotations from map/scene
   }
 }
-
 async function fetchVegetationEncroachments() {
   if (fetchedFromServer) return;
   try {
@@ -518,5 +599,91 @@ async function fetchVegetationEncroachments() {
 
   } catch (error) {
     console.error('Error fetching vegetation encroachments from the server', error.message);
+  }
+}
+
+
+// route tool
+// TODO FIX THE BUGS ASSOCIATED WITH ADDING AND REMOVE PATHS
+let routeToolActive = false;
+const routeTool = document.querySelector('.route-tool');
+routeTool.addEventListener('click', addRoutes);
+
+const saveContainer = document.querySelector('#save-path-container');
+const exitPathSelection = document.querySelector('.exit-path-selection');
+const savePathSelection = document.querySelector('.save-path-selection');
+// this is so we do not remove the existing polylines
+let tempPolylines = []
+let tempDistanceOverlays = []
+exitPathSelection.addEventListener('click', function() {
+  tempPolylines.forEach(polyline => {
+    polyline.setMap(null);
+  })
+
+  markers.forEach(marker => {
+    marker.setIcon(MarkerIcon('aerial', false));
+  })
+
+  tempDistanceOverlays.forEach(overlay => {
+    overlay.setMap(null);
+  })
+
+  paths = [];
+  tempPolylines = [];
+  tempDistanceOverlays = [];
+  currMarker = null;
+
+  saveContainer.style.display = 'none';
+  routeTool.style.border = 'none'
+  routeTool.style.borderBottom = '1px solid black'
+  routeToolActive = false;
+})
+
+savePathSelection.addEventListener('click', function() {
+  //save to database
+  toggleRouteSideBar();
+  routeTool.style.border = 'none'
+  routeTool.style.borderBottom = '1px solid black'
+  polylines.push(tempPolylines)
+  fetch(`/savePaths/${id}`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify( paths )
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Network response was no ok');
+    }
+    return response.json();
+  })
+  .then(data => {
+    console.log(data);
+  })
+  .catch(error => {
+    console.error('Error saving data: ', error);
+  })
+})
+
+function toggleRouteSideBar() {
+  if (routeToolActive) {
+    saveContainer.style.display = 'none';
+  } else {
+    saveContainer.style.display = 'flex';
+  }
+}
+
+function addRoutes() {
+  if (routeToolActive) return;
+  toggleRouteSideBar();  
+  routeToolActive = true;
+  
+  if (routeToolActive) {
+    routeTool.style.border = '1px solid blue'
+
+  } else {
+    routeTool.style.border = 'none'
+    routeTool.style.borderBottom = '1px solid black'
   }
 }

@@ -55,21 +55,6 @@ def extract_pole_locations_wo(las_file_path, pole_classification=8):
     coords = np.vstack((x, y, z)).transpose()
     return coords
 
-def extract_wire_locations(las_file_path, wire_classification=7):
-    las = laspy.read(las_file_path)
-    points = las.points
-    classifications = points.classification
-    wire_mask = classifications == wire_classification
-    wire_points = points[wire_mask]
-
-    x = wire_points.x
-    y = wire_points.y
-    z = wire_points.z
-    height_above_ground_feet = wire_points['HeightAboveGround'] * 3.28084
-
-    coords = np.vstack((x, y, z, height_above_ground_feet)).transpose()
-    return coords
-
 def center_of_pole(pole_groups):
     pole_list = []
     for i, pole_group in enumerate(pole_groups):
@@ -594,25 +579,30 @@ def plot_line_and_points(points, model, inliers):
 
 
 if __name__ == "__main__":
-    las_file = './18.las'
-    pole_locations = extract_pole_locations(las_file)
+    #las_file = './18.las'
+    #pole_locations = extract_pole_locations(las_file)
 
+    #uncomment for server
+    las_data_stream = sys.stdin.buffer.read()
+    pole_locations = extract_pole_locations(las_data_stream)
     grouped_poles = group_poles(pole_locations)
+    json_output = poles_to_json(grouped_poles)
+    print(json_output)
 
-    pole_list = center_of_pole(grouped_poles)
+    #pole_list = center_of_pole(grouped_poles)
 
-    #wire_pole_connections = find_nearest_pole(wire_coords, pole_list)
-    wire_coords = extract_wire_locations(las_file)
-    sorted_wire_coords = sorted(wire_coords, key=lambda coord: (coord[0], coord[1]))
+    ##wire_pole_connections = find_nearest_pole(wire_coords, pole_list)
+    #wire_coords = extract_wire_locations(las_file)
+    #sorted_wire_coords = sorted(wire_coords, key=lambda coord: (coord[0], coord[1]))
 
-    pole_lines = find_pole_line(sorted_wire_coords, pole_list)
-    
-    paths = []
-    for line in pole_lines:
-        paths.append([line['first_pole'], line['second_pole']])
+    #pole_lines = find_pole_line(sorted_wire_coords, pole_list)
+    #
+    #paths = []
+    #for line in pole_lines:
+    #    paths.append([line['first_pole'], line['second_pole']])
 
-    with open('paths.json', 'w') as path_file:
-            json.dump(paths, path_file, indent=4)
+    #with open('paths.json', 'w') as path_file:
+    #        json.dump(paths, path_file, indent=4)
             #wires = path['coordinates']
             #for i, wire in enumerate(wires):
             #    if i == 20:
@@ -640,8 +630,4 @@ if __name__ == "__main__":
 
 
 
-    #uncomment for server
-    #las_data_stream = sys.stdin.buffer.read()
-    #pole_locations = extract_pole_locations(las_data_stream)
-    #json_output = poles_to_json(grouped_poles)
-    #print(json_output)
+

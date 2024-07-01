@@ -8,6 +8,8 @@ import { promises as fs } from 'fs'; // Use promises from fs
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js'
 import { v4 as uuidv4 } from 'uuid';
+import bodyParser from 'body-parser';
+
 
 import dotenv from 'dotenv'
 dotenv.config()
@@ -26,7 +28,9 @@ const corsOptions = {
 
 const app = express();
 app.use(cors(corsOptions));
-app.use(express.json());
+const jsonParser = bodyParser.json();
+app.use(jsonParser);
+//app.use(express.json());
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -267,7 +271,7 @@ app.post('/convertToOctree/:key', upload.single('file'), async (req, res) => {
     }
 
     // FIRST PROCESS REQUIRED: CONVERT LAS INTO OCTREE AND SAVE TO DATABASE
-    const potreeConverterPath = '/home/ja/pivot/public/PotreeConverter';
+    const potreeConverterPath = '/home/ja/pivottmp/public/PotreeConverter';
     const potreeProcess = spawn(potreeConverterPath, [uploadedFile.path, '-o', `${uploadDir}/${key}`]);
 
     potreeProcess.stdout.on('data', (data) => {
@@ -557,22 +561,6 @@ app.get('/getMarkersAndPaths/:id', async (req, res) => {
   }
 })
 
-async function downloadLASFileFromSupabase(key, localFilePath) {
-  const { data, error } = await supabase.storage.from('lidar').download(`${key}/input.las`);
-
-  if (error) {
-    console.error('Error downloading LAS file:', error.message);
-    return;
-  }
-
-  fs.writeFileSync(localFilePath, data);
-  console.log('LAS file downloaded successfully:', localFilePath);
-}
-
-function findPoleLocationsAndPaths(id) {
-  
-}
-
 app.get('/lowest_midspans', async (req, res) => {
   try {
     // Construct the path to the JSON file
@@ -647,82 +635,220 @@ app.get('/paths:id', async (req, res) => {
   res.sendFile(filePath);
 })
 
+
 app.get('/vegetationEncroachments/:id', async (req, res) => {
   const id = req.params.id;
   try {
     const { data, error } = await supabase
       .from('jobs')
       .select('vegetation')
-      .eq('id', id)
+      .eq('id', id);
 
     if (error) {
       throw new Error('Failed to fetch vegetation encroachments');
     }
 
-    if (data.vegetation) {
-      res.json(data)
+    if (data && data.vegetation) {
+      res.json(data);
     } else {
-      const { data, error } = await supabase
+      const { data: fileData, error: fileError } = await supabase
         .storage
         .from('lidar')
-        .download(`${id}/${id}.las`)
-      
-      const arrayBuffer = await data.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      if (error) {
-        console.error('Error downloading file:', error)
-        return null;
-      } else {
-        console.log('file downloaded')
+        .download(`${id}/${id}.las`);
+
+      if (fileError) {
+        console.error('Error downloading file:', fileError);
+        return res.status(500).send('Error downloading file');
       }
 
-      return new Promise((resolve, reject) => {
-        const pythonProcess = spawn('python3', [`${__dirname}/extract_vegetation.py`]);
+      const arrayBuffer = await fileData.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
 
-        pythonProcess.stdin.write(buffer);
-        pythonProcess.stdin.end();
+      const { data: midspanData, error: midspanError } = await supabase
+        .from('jobs')
+        .select('midspans')
+        .eq('id', id)
+        .single()
 
-        let jsonString = '';
-        pythonProcess.stdout.on('data', (data) => {
-          jsonString += data.toString();
-        });
+      const pythonProcess = spawn('python3', [`${__dirname}/extract_vegetation.py`]);
 
-        pythonProcess.stderr.on('data', (data) => {
-          console.error(`Python stderr: ${data}`);
-        });
+      console.log(typeof(midspanData))
+      pythonProcess.stdin.write(JSON.stringify(midspanData));
+      pythonProcess.stdin.write('\n');  // Add a newline character to ensure Python can read it correctly
+      pythonProcess.stdin.write(buffer);
+      pythonProcess.stdin.end();
 
-        pythonProcess.on('close', async (code) => {
-          if (code === 0) {
-            try {
-              const poleData = JSON.parse(jsonString);
-              let { data, error } = await supabase
-                .from('jobs')
-                .update({ poles: poleData })
-                .eq('id', key)
-                .single();
+      //if (midspanError || !midspanData) {
+      //  pythonProcess.stdin.write(JSON.stringify([]));
+      //} else {
+      //  pythonProcess.stdin.write(JSON.stringify(midspanData));
+      //}
+      //pythonProcess.stdin.end();
 
-              if (error) {
-                console.log("Error updating jobs table", error);
-                reject(false);
-              } else {
-                console.log("Successfully extracted poles");
-                resolve(poleData);
-              }
-            } catch (error) {
-              console.error('Error parsing JSON or updating database:', error);
-              reject(false);
+      let result;
+      pythonProcess.stdout.on('data', (data) => {
+        result = data.toString().trim();
+        console.log('Result:', result);
+      });
+
+      pythonProcess.stderr.on('data', (data) => {
+        console.error(`Python stderr: ${data}`);
+      });
+
+      pythonProcess.on('close', async (code) => {
+        if (code === 0) {
+          try {
+            const vegetationEncroachments = JSON.parse(result);
+            const { data: updateData, error: updateError } = await supabase
+              .from('jobs')
+              .update({ vegetation: vegetationEncroachments })
+              .eq('id', id)
+              .single();
+
+            if (updateError) {
+              console.log("Error updating jobs table", updateError);
+              res.status(500).send("Error updating database");
+            } else {
+              console.log("Successfully extracted vegetation data");
+              res.json(vegetationEncroachments)
             }
-          } else {
-            console.error('Python script exited with error code:', code);
-            reject(false);
+          } catch (error) {
+            console.error('Error parsing JSON or updating database:', error);
+            res.status(500).send('Error processing vegetation data');
           }
-        });
+        } else {
+          console.error('Python script exited with error code:', code);
+          res.status(500).send('Error running Python script');
+        }
       });
     }
   } catch (error) {
     console.error('Error fetching vegetation encroachments:', error.message);
-    return [];
-  }  
+    res.status(500).send('Internal Server Error');
+  }
+});
+//app.get('/vegetationEncroachments/:id', async (req, res) => {
+//  const id = req.params.id;
+//  try {
+//    const { data, error } = await supabase
+//      .from('jobs')
+//      .select('vegetation')
+//      .eq('id', id)
+//
+//    if (error) {
+//      throw new Error('Failed to fetch vegetation encroachments');
+//    }
+//
+//    if (data.vegetation) {
+//      res.json(data)
+//    } else {
+//      const { data, error } = await supabase
+//      .storage
+//      .from('lidar')
+//      .download(`${id}/${id}.las`)
+//
+//      //if (error) {
+//      //  console.error('Error downloading file:', error)
+//      //  return res.status(500).send('Error downloading file');
+//      //} else {
+//      //  console.log('file downloaded')
+//      //}
+//
+//      const arrayBuffer = await data.arrayBuffer();
+//      const buffer = Buffer.from(arrayBuffer);
+//      
+//      return new Promise((resolve, reject) => {
+//        console.log('here')
+//        const pythonProcess = spawn('python3', [`${__dirname}/extract_vegetation.py`]);
+//
+//        pythonProcess.stdin.write(buffer);
+//        pythonProcess.stdin.end();
+//
+//        let jsonString = '';
+//        pythonProcess.stdout.on('data', (data) => {
+//          jsonString += data.toString();
+//        });
+//
+//        pythonProcess.stderr.on('data', (data) => {
+//          console.error(`Python stderr: ${data}`);
+//        });
+//
+//        pythonProcess.on('close', async (code) => {
+//          if (code === 0) {
+//            try {
+//              const poleData = JSON.parse(jsonString);
+//              let { data, error } = await supabase
+//                .from('jobs')
+//                .update({ poles: poleData })
+//                .eq('id', key)
+//                .single();
+//
+//              if (error) {
+//                console.log("Error updating jobs table", error);
+//                reject(false);
+//              } else {
+//                console.log("Successfully extracted poles");
+//                resolve(poleData);
+//              }
+//            } catch (error) {
+//              console.error('Error parsing JSON or updating database:', error);
+//              reject(false);
+//            }
+//          } else {
+//            console.error('Python script exited with error code:', code);
+//            reject(false);
+//          }
+//        });
+//      });
+//    }
+//  } catch (error) {
+//    console.error('Error fetching vegetation encroachments:', error.message);
+//    return [];
+//  }  
+//})
+
+app.post('/savePaths/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const { data, error } = await supabase
+      .from('jobs')
+      .update({ midspans: req.body })
+      .eq('id', id)
+      .select()
+
+    if (error) {
+      throw new Error("Failed to fetch markers from database");
+    }
+
+    const updatedRecord = await supabase
+      .from('jobs')
+      .select('midspans')
+      .eq('id', id)
+      .single();
+
+    res.status(200).json(updatedRecord);
+
+  } catch (error) {
+    console.error(error.message);
+  }
 })
 
+app.get('/midspans/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('midspans')
+      .eq('id', id)
+      .single()
 
+    const midspans = data && data.midspans ? data.midspans : [];
+    return res.json(midspans)
+
+    if (error) {
+      throw new Error("Failed to fetch markers from database");
+    }
+  } catch (error) {
+    console.error(error.message);
+  }
+})
