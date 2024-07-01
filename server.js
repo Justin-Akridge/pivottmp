@@ -672,10 +672,8 @@ app.get('/vegetationEncroachments/:id', async (req, res) => {
 
       const pythonProcess = spawn('python3', [`${__dirname}/extract_vegetation.py`]);
 
-      console.log(typeof(midspanData))
-      pythonProcess.stdin.write(JSON.stringify(midspanData));
-      pythonProcess.stdin.write('\n');  // Add a newline character to ensure Python can read it correctly
       pythonProcess.stdin.write(buffer);
+      pythonProcess.stdin.write(JSON.stringify(midspanData));
       pythonProcess.stdin.end();
 
       //if (midspanError || !midspanData) {

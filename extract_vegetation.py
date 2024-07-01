@@ -129,7 +129,7 @@ def extract_geo_paths(paths):
 #                        break
 #
 #    return veg_near_midspan
-def find_veg_near_midspan(geo_paths, veg_groups, tolerance=10):
+def find_veg_near_midspan(geo_paths, veg_groups, tolerance=15):
     veg_near_midspan = {}
 
     for geo_path in geo_paths:
@@ -221,13 +221,18 @@ def distance_to_line_segment(point, line_start, line_end):
     return distance_feet
 
 if __name__ == '__main__':
-    #midspans_data = sys.stdin.strip()
-    #las_data_stream = sys.stdin.buffer.read()
-    midspans_file_path = './midspans.json'
-    las_data_stream = './18.las'
+    las_data_stream = sys.stdin.buffer.read()
+    midspans_data = sys.stdin.read()
+    #input = sys.stdin.readlines()
+    #tokens = input.split()
+    #midspans_data = int(tokens[0])
+    #las_data_stream = int(tokens[1])
 
-    with open(midspans_file_path, 'r') as file:
-        midspans_data = json.load(file)
+    #midspans_file_path = './midspans.json'
+    #las_data_stream = './18.las'
+
+    #with open(midspans_file_path, 'r') as file:
+    #    midspans_data = json.load(file)
     geo_paths = extract_geo_paths(midspans_data)
 
     veg_locations = extract_veg_locations(las_data_stream)
