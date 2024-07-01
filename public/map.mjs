@@ -10,31 +10,37 @@ let paths = []
 let polylines = []
 let selectedMarker = null;
 
+let streetViewTabOpened = false;
+let streetView;
+let pegmanMarker;
+
 export async function initMap(coords) {
   const mapOptions = {
     center: { lat: coords.lat, lng: coords.lng },
     mapId: '174211dc9f8dbb94',
 		zoomControl: false,
 		scaleControl: true,
-		fullscreenControl: true,
+		fullscreenControl: false,
 		mapTypeControl: false,
 		mapTypeId: google.maps.MapTypeId.HYBRID,
 		tilt: 0,
 		gestureHandling: 'greedy',
 		maxZoom: 21, 
 		minZoom: 0, 
+    streetViewControl: true
   };
 
   const map = new google.maps.Map(document.getElementById("map"), mapOptions);
   const poleLocations = await loadPolePositions(id);
+  const wirePaths = await loadWirePaths(id);
 
   poleLocations.forEach(location => {
     initializeMarker(location, map);
   })
 
-  //poleLocations.paths.forEach(item => {
-  //  createNewPath(item[0], item[1], markersAndPathsSaved, map)
-  //})
+  wirePaths.forEach(item => {
+    createNewPath(item[0], item[1], map)
+  })
 
   if (markers.length > 0) {
     const bounds = new google.maps.LatLngBounds();
@@ -44,8 +50,84 @@ export async function initMap(coords) {
     map.fitBounds(bounds);
     map.setZoom(map.getZoom());
   }
+
+  const panorama = new google.maps.StreetViewPanorama(
+    document.getElementById("pano"),
+    {
+      position: { lat: 42.345573, lng: -71.098326 },
+      addressControlOptions: {
+        position: google.maps.ControlPosition.BOTTOM_CENTER,
+      },
+      linksControl: false,
+      panControl: false,
+      enableCloseButton: false,
+    },
+  );
+
+
+  streetView = map.getStreetView();
+
+  // Listen for visibility change of Street View
+  streetView.addListener('visible_changed', function() {
+  if (streetView.getVisible() && !streetViewTabOpened) {
+    streetView.setVisible(false); // Hide Street View in the map
+
+    const position = streetView.getPosition();
+
+    if (position) {
+      openStreetViewInNewTab(position.lat(), position.lng());
+      streetViewTabOpened = true;
+    }
+  }
+});
+
+  //streetView.addListener('visible_changed', function() {
+  //  if (streetView.getVisible() && !streetViewTabOpened) {
+  //    streetView.setVisible(false); // Hide Street View in the map
+
+  //    setiitimeout(() => {
+  //    }, 1000)
+  //    const position = streetView.getPosition();
+  //    openStreetViewInNewTab(position.lat(), position.lng());
+
+  //    streetViewTabOpened = true;
+  //  }
+  //});
+
+  // Create Pegman marker
+  //pegmanMarker = new google.maps.Marker({
+  //  position: map.getCenter(),
+  //  icon: {
+  //    size: new google.maps.Size(34, 54),
+  //    anchor: new google.maps.Point(17, 54) // Center bottom point of the marker
+  //  },
+  //  map: map,
+  //  draggable: true,
+  //  title: 'Drag me!'
+  //});
+
+  // Listen for drag end of Pegman marker
+  google.maps.event.addListener(pegmanMarker, 'dragend', function() {
+    const position = pegmanMarker.getPosition();
+    streetView.setPosition(position);
+    //streetView.setVisible(true); // Show Street View at the Pegman marker position
+  });
+
+  // Function to open Street View in a new tab
+  function openStreetViewInNewTab(lat, lng) {
+    const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+    const newTab = window.open(url, '_blank');
+  }
 }
 
+function handlePegmanDrag() {
+  if (!streetViewOpenedOnce) {
+    streetViewOpenedOnce = true;
+    streetView.setVisible(true); // Show Street View in the embedded map
+  }
+}
+
+let numberOverlays = [];
 function initializeMarker(location, map) {
   //let locationLatLng = localToGeographic(location.geoPosition.x, location.geoPosition.y);
   const position = new google.maps.LatLng(location.mapPosition.lng, location.mapPosition.lat);
@@ -64,23 +146,69 @@ function initializeMarker(location, map) {
 
   const marker = new google.maps.Marker(markerOptions);
   marker.addListener('click', (e) => handleMarkerClick(marker, map));
+  marker.addListener('dblclick', (e) => handleMarkerDblClick(marker, map));
   markers.push(marker);
-  //marker.setMap(map);
+  
+  const overlay = addNumberOverlayForMarkers(marker, markers.length, map);
+  numberOverlays.push(overlay)
+}
+
+function addNumberOverlayForMarkers(marker, number, map) {
+    const overlay = new google.maps.OverlayView();
+    overlay.onAdd = function () {
+      const div = document.createElement('div');
+      div.className = 'distance-overlay';
+      div.innerHTML = `${number}`;
+      div.style.width = 'fit-content';
+      div.style.backgroundColor = 'rgba(255, 255, 255, 0.4)';
+      div.style.padding = '2px 5px';
+      div.style.borderRadius = '3px';
+      div.style.position = 'absolute';
+      this.getPanes().floatPane.appendChild(div);
+      this.div = div;
+    };
+
+    overlay.draw = function () {
+      const projection = this.getProjection();
+      const position = projection.fromLatLngToDivPixel(new google.maps.LatLng(marker.position.lat(), marker.position.lng()));
+      const div = this.div;
+      div.style.left = position.x + 'px';
+      div.style.top = position.y + 'px';
+    };
+
+    overlay.onRemove = function () {
+      this.div.parentNode.removeChild(this.div);
+      this.div = null;
+    };
+
+    overlay.setMap(map);
+    return overlay;
+}
+
+async function loadWirePaths(id) {
+  try {
+    const response = await fetch('/paths.json');
+    const data = await response.json();
+    return data;
+	} catch (error) {
+		console.error('Error fetching wire paths:', error);
+	}
 }
 
 async function loadPolePositions(id) {
 	try {
     const response = await fetch(`http://localhost:3000/getMarkersAndPaths/${id}`)
+    
+    if (!response.ok) {
+      throw new Error("Failed to fetch job saved status");
+    }
     const data = await response.json();
     return data;
     //return { markers : data[0].markers, paths : data[0].paths, saved: true };
 
-    if (!response.ok) {
-      throw new Error("Failed to fetch job saved status");
-    }
 	} catch (error) {
-    return [];
 		console.error('Error fetching pole Locations:', error);
+    return [];
 	}
 }
 
@@ -145,18 +273,21 @@ const MarkerIcon = (markerType, isSelected) => {
   }
 };
 
-function createNewPath(firstMarker, secondMarker, markersAndPathsSaved, map) {
-  const firstPole = {
-    mapPosition: firstMarker.mapPosition,
-    geoPosition: firstMarker.geoPosition,
-  };
+function createNewPath(firstLoc, secondLoc, map) {
+  let firstPole = null; 
+  let secondPole = null;
+  
+  markers.forEach(marker => {
+    if (marker.geoPosition['x'] === firstLoc['x'] && marker.geoPosition['y'] === firstLoc['y']) {
+      firstPole = marker;
+    }
 
-  const secondPole = {
-    mapPosition: secondMarker.mapPosition,
-    geoPosition: secondMarker.geoPosition,
-  };
+    if (marker.geoPosition['x'] === secondLoc['x'] && marker.geoPosition['y'] === secondLoc['y']) {
+      secondPole = marker;
+    }
+  })
 
-  const path = [firstPole.mapPosition, secondPole.mapPosition];
+  const path = [firstPole.position, secondPole.position];
   const newPath = [firstPole, secondPole];
   paths.push(newPath);
 
@@ -216,18 +347,83 @@ function createOverlayForPolyline(path, polyline, map) {
   });
 }
 
-document.addEventListener('keyup', function(event) {
-  if (event.key === 'Escape' || event.keyCode === 27) {
-    selectedMarker = null;
+
+//angles for map
+const angleRight = document.querySelector('.fa-angle-right');
+const angleLeft = document.querySelector('.fa-angle-left');
+const angleContainer = document.getElementById('angle-container');
+const renderArea = document.getElementById("potree_render_area");
+const poleInformation = document.getElementById("pole-information")
+let poleInformationBoxOpen = false;
+let arrowIsDisplayed = false;
+let viewerIsOpen = false;
+
+angleRight.addEventListener('click', function() {
+  angleLeft.style.display = 'flex';
+  angleRight.style.display = 'none';
+  if (poleInformationBoxOpen) {
+    angleContainer.style.left = '635px';
+  } else {
+    angleContainer.style.left = '935px';
   }
+  viewerIsOpen = true
+  openViewer();
+
 });
+
+angleLeft.addEventListener('click', function() {
+  angleRight.style.display = 'flex';
+  angleLeft.style.display = 'none';
+  angleContainer.style.left = '0px';
+  closeViewer();
+  viewerIsOpen = false;
+});
+
+function closeViewer() {
+  renderArea.style.display = 'none';
+}
+
+function openViewer() {
+  renderArea.style.display = 'block';
+}
 
 function handleMarkerClick(marker, map) {
   const geoPosition = marker.geoPosition;
-  console.log(marker)
   targetTo(viewer, new THREE.Vector3(geoPosition.x, geoPosition.y, geoPosition.z), 0.02);
+
+  if (arrowIsDisplayed) {
+    return;
+  } else {
+    angleRight.style.display = 'flex';
+    arrowIsDisplayed = true;
+  }
 }
 
+function handleMarkerDblClick(marker) {
+  poleInformationBoxOpen = true; 
+  poleInformation.style.display = 'block'
+
+  renderArea.style.display = 'block';
+  angleContainer.style.left = '635px';
+  angleLeft.style.display = 'flex';
+  angleRight.style.display = 'none';
+}
+
+document.addEventListener('keyup', function(event) {
+  if (event.key === 'Escape' || event.keyCode === 27) {
+    selectedMarker = null;
+    if (poleInformationBoxOpen) {
+      poleInformation.style.display = 'none'
+      poleInformationBoxOpen = false; 
+      angleContainer.style.left = '935px';
+    }
+
+    if (arrowIsDisplayed && !viewerIsOpen) {
+      angleRight.style.display = 'none';
+      arrowIsDisplayed = false;
+    }
+  }
+});
 
 function targetTo(viewer, target) {
   const {view} = viewer.scene;
@@ -269,3 +465,58 @@ function targetTo(viewer, target) {
     }
   view.position.copy(cameraTargetPosition);
 };
+
+
+// VEGETATION ENCROACHMENTS
+let vegetationToolActive = false;
+let vegetationEncroachments = [];
+let fetchedFromServer = false;
+
+const vegetationTool = document.querySelector('.vegetation-tool');
+vegetationTool.addEventListener('click', toggleVegetationTool);
+
+function toggleVegetationTool() {
+  vegetationToolActive = !vegetationToolActive;
+
+  if (vegetationToolActive) {
+    fetchVegetationEncroachments()
+    displayVegetationEncroachments();
+  } else {
+    removeVegetationEncroachments();
+  }
+}
+
+function displayVegetationEncroachments() {
+  if (vegetationEncroachments.length === 0) {
+    //popup displaying no vegetation encroachments
+  } else {
+    //add markers to map and scene
+  }
+  
+  
+}
+
+function removeVegetationEncroachments() {
+  if (vegetationEncroachments.length === 0) {
+    return;
+  } else {
+    // remove markers and annotations from map/scene
+  }
+}
+
+async function fetchVegetationEncroachments() {
+  if (fetchedFromServer) return;
+  try {
+    const response = await fetch(`/vegetationEncroachments/${id}`)
+    if (!response.ok) {
+      throw new Error('Failed to fetch vegetation encroachments');
+    }
+
+    //server should return empty array in none
+    vegetationEncroachments = await response.json()
+    fetchedFromServer = true;
+
+  } catch (error) {
+    console.error('Error fetching vegetation encroachments from the server', error.message);
+  }
+}

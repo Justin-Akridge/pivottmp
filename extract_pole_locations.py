@@ -7,10 +7,11 @@ from pyproj import Proj, Transformer
 from scipy.spatial import KDTree
 from sklearn.linear_model import LinearRegression
 from sklearn.linear_model import RANSACRegressor
-from skimage.measure import ransac, LineModelND
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from pyransac3d import Line
+from scipy.spatial import cKDTree
+from collections import defaultdict
 
 def local_to_geographic(x, y, zone=16, northern=True):
     utm_proj = Proj(proj='utm', zone=zone, datum='WGS84', units='m', north=northern)
@@ -53,14 +54,20 @@ def extract_pole_locations_wo(las_file_path, pole_classification=8):
 
     coords = np.vstack((x, y, z)).transpose()
     return coords
+
 def extract_wire_locations(las_file_path, wire_classification=7):
     las = laspy.read(las_file_path)
     points = las.points
     classifications = points.classification
     wire_mask = classifications == wire_classification
     wire_points = points[wire_mask]
-    #coords = np.vstack((wire_points.x, wire_points.y, wire_points.z,)).transpose()
-    coords = np.vstack((wire_points.x, wire_points.y, wire_points.z, wire_points['HeightAboveGround'] * 3.28084)).transpose()
+
+    x = wire_points.x
+    y = wire_points.y
+    z = wire_points.z
+    height_above_ground_feet = wire_points['HeightAboveGround'] * 3.28084
+
+    coords = np.vstack((x, y, z, height_above_ground_feet)).transpose()
     return coords
 
 def center_of_pole(pole_groups):
@@ -198,14 +205,228 @@ def find_centerline(pole_points):
 
     return centerline_points
 
-def find_pole_line(grouped_poles, pole_list):
-    pole_lines = {}
-    for i, pole in enumerate(pole_list):
-        pole_id = pole['id']
 
-        pole_points = grouped_poles[i]
-        centerline_points = find_centerline(pole_points)
-        pole_lines[pole_id] = centerline_points
+
+def calculate_direction(pole, wire_coord):
+    pole_pos = np.array([pole['x'], pole['y']])
+    wire_pos = np.array([wire_coord[0], wire_coord[1]])
+    direction = wire_pos - pole_pos
+    return direction / np.linalg.norm(direction)
+
+def find_nearest_pole(wire_coord, pole_list, tolerance=1.0):
+    nearest_pole = None
+    min_distance = float('inf')
+
+    for pole in pole_list:
+        distance = np.sqrt((pole['x'] - wire_coord[0])**2 + (pole['y'] - wire_coord[1])**2)
+        if distance <= tolerance and distance < min_distance:
+            min_distance = distance
+            nearest_pole = pole
+
+    return nearest_pole
+
+def find_pole_line(wire_coords, pole_list, tolerance=1.0):
+    pole_array = np.array([[pole['x'], pole['y']] for pole in pole_list])
+    wire_array = np.array([[coord[0], coord[1], coord[2], coord[3]] for coord in wire_coords])
+
+    for i in range(len(pole_list) - 1):
+        print(pole_list[i])
+        for j in range(i + 1, len(pole_list)):
+            print(pole_list[j])
+            break
+
+#def find_pole_line(wire_coords, pole_list, tolerance=1.0):
+#    pole_array = np.array([[pole['x'], pole['y']] for pole in pole_list])
+#    wire_array = np.array([[coord[0], coord[1], coord[2], coord[3]] for coord in wire_coords])
+#
+#    proximity_to_poles = {}
+#    for pole in pole_list:
+#        pole_coords = (pole['x'], pole['y'])
+#        proximity_to_poles[pole_coords] = []
+#
+#        for wire in wire_coords:
+#            if abs(pole['x'] - wire[0]) <= tolerance and abs(pole['y'] - wire[1]) <= tolerance:
+#                proximity_to_poles[pole_coords].append(wire)
+#    
+#    for key, value in proximity_to_poles.items():
+#        print('key', key)
+#        for val in value:
+#            print(val)
+#
+#        print()
+#        print()
+#    return []
+
+
+#def find_pole_line(wire_coords, pole_list, radius=10.0):
+#    pole_lines = []
+#
+#    # Convert poles and wire coordinates to numpy arrays
+#
+#    # Create a k-d tree for fast nearest-neighbor lookup
+#    pole_tree = cKDTree(pole_array)
+#
+#    # Create a dictionary to store wires near each pole
+#    pole_to_wires = {tuple(pole): [] for pole in pole_array}
+#
+#    # Group wire coordinates by proximity to poles
+#    for wire in wire_array:
+#        x, y, _, _ = wire
+#        distances, indices = pole_tree.query([x, y], k=len(pole_list), distance_upper_bound=radius)
+#        for distance, index in zip(distances, indices):
+#            if distance < radius:
+#                pole = tuple(pole_array[index])
+#                pole_to_wires[pole].append(wire)
+#                break
+#
+#    # Create a dictionary to store paths
+#    path_dict = {}
+#
+#    # Determine direction and find the nearest pole in that direction
+#    for pole, wires in pole_to_wires.items():
+#        pole_x, pole_y = pole
+#        for wire in wires:
+#            x, y, _, _ = wire
+#
+#            # Calculate direction vector
+#            direction = np.array([x - pole_x, y - pole_y])
+#            direction = direction / np.linalg.norm(direction)  # Normalize the direction
+#
+#            # Find the nearest pole in that direction
+#            best_pole = None
+#            best_projection = -np.inf
+#
+#            for other_pole in pole_array:
+#                if tuple(other_pole) == pole:
+#                    continue
+#
+#                other_x, other_y = other_pole
+#                to_other_pole = np.array([other_x - pole_x, other_y - pole_y])
+#                projection = np.dot(direction, to_other_pole)
+#
+#                if projection > best_projection:
+#                    best_projection = projection
+#                    best_pole = other_pole
+#
+#            if best_pole is not None:
+#                first_pole = pole
+#                second_pole = tuple(best_pole)
+#                if (first_pole, second_pole) not in path_dict:
+#                    path_dict[(first_pole, second_pole)] = []
+#
+#                path_dict[(first_pole, second_pole)].append(wire)
+#
+#    # Convert paths to the desired format
+#    for (first_pole, second_pole), path_coords in path_dict.items():
+#        pole_lines.append({
+#            'first_pole': {'x': first_pole[0], 'y': first_pole[1]},
+#            'second_pole': {'x': second_pole[0], 'y': second_pole[1]},
+#            'coordinates': path_coords
+#        })
+#
+#    return pole_lines
+#def find_pole_line(wire_coords, pole_list, tolerance=1.0):
+#    pole_lines = []
+#
+#    # Convert poles and wire coordinates to numpy arrays
+#    pole_array = np.array([[pole['x'], pole['y']] for pole in pole_list])
+#    wire_array = np.array([[coord[0], coord[1]] for coord in wire_coords])
+#
+#    # Create a k-d tree for fast nearest-neighbor lookup
+#    pole_tree = cKDTree(pole_array)
+#
+#    # Iterate through each wire coordinate and find the closest pole
+#    distances, indices = pole_tree.query(wire_array, k=3)
+#
+#    # Create a dictionary to store paths
+#    path_dict = {}
+#
+#    for i, (first_idx, second_idx) in enumerate(indices):
+#        first_pole = tuple(pole_array[first_idx])
+#        second_pole = tuple(pole_array[second_idx])
+#
+#        if (first_pole, second_pole) not in path_dict:
+#            path_dict[(first_pole, second_pole)] = []
+#
+#        path_dict[(first_pole, second_pole)].append(wire_coords[i])
+#
+#    # Filter out paths without any wire coordinates between poles
+#    for (first_pole, second_pole), path_coords in path_dict.items():
+#        filtered_path_coords = [coord for coord in path_coords if is_point_near_line(coord, first_pole, second_pole, tolerance)]
+#        if filtered_path_coords:
+#            pole_lines.append({
+#                'first_pole': {'x': first_pole[0], 'y': first_pole[1]},
+#                'second_pole': {'x': second_pole[0], 'y': second_pole[1]},
+#                'coordinates': filtered_path_coords
+#            })
+#
+#    return pole_lines
+#def find_pole_line(wire_coords, pole_list):
+#    pole_lines = []
+#
+#    # Convert poles and wire coordinates to numpy arrays
+#    pole_array = np.array([[pole['x'], pole['y']] for pole in pole_list])
+#    wire_array = np.array([[coord[0], coord[1]] for coord in wire_coords])
+#
+#    # Create a k-d tree for fast nearest-neighbor lookup
+#    pole_tree = cKDTree(pole_array)
+#
+#    # Iterate through each wire coordinate and find the closest pole
+#    distances, indices = pole_tree.query(wire_array, k=2)
+#
+#    # Create a dictionary to store paths
+#    path_dict = {}
+#
+#    for i, (first_idx, second_idx) in enumerate(indices):
+#        first_pole = tuple(pole_array[first_idx])
+#        second_pole = tuple(pole_array[second_idx])
+#
+#        if (first_pole, second_pole) not in path_dict:
+#            path_dict[(first_pole, second_pole)] = []
+#
+#        path_dict[(first_pole, second_pole)].append(wire_coords[i])
+#
+#    # Convert paths to the desired format
+#    for (first_pole, second_pole), path_coords in path_dict.items():
+#        pole_lines.append({
+#            'first_pole': {'x': first_pole[0], 'y': first_pole[1]},
+#            'second_pole': {'x': second_pole[0], 'y': second_pole[1]},
+#            'coordinates': path_coords
+#        })
+#
+#    return pole_lines
+
+#def find_pole_line(wire_coords, pole_list):
+#    sorted_pole_list = sorted(pole_list, key=lambda pole: (pole['x'], pole['y']))
+#    pole_lines = []
+#
+#    # Iterate through pairs of consecutive poles
+#    for i in range(len(sorted_pole_list) - 1):
+#        first_pole = sorted_pole_list[i]
+#        for j in range(i + 1, len(sorted_pole_list)):
+#            second_pole = sorted_pole_list[j]
+#
+#            # Filter wire_coords between current pair of poles
+#            path_coords = []
+#
+#            for coord in wire_coords:
+#                x, y, _, _ = coord
+#
+#                if ((first_pole['x'] <= x <= second_pole['x'] or
+#                 second_pole['x'] <= x <= first_pole['x']) and
+#                (first_pole['y'] <= y <= second_pole['y'] or
+#                 second_pole['y'] <= y <= first_pole['y'])):
+#
+#                    path_coords.append(coord)
+#
+#            # Append the path information to pole_lines
+#            pole_lines.append({
+#                'first_pole': first_pole,
+#                'second_pole': second_pole,
+#                'coordinates': path_coords
+#            })
+#
+#    return pole_lines
     
 def fit_ransac_to_pole(pole_points):
     X = np.array(pole_points)[:, :2]  # Take only x and y
@@ -249,25 +470,19 @@ def Ransac3d(pole_groups, start_points):
         start_point_xyz = (start_point['x'], start_point['y'], start_point['z'])
         start_point_np = np.array(start_point_xyz)
 
-        # Convert to numpy arrays if necessary
         pole = np.array(pole_group)
 
-        # Ensure the data is 3-dimensional
-        if pole.shape[1] != 3 or start_point_np.shape[0] != 3:
-            raise ValueError("Input data must be 3-dimensional")
-
-        # Adjust the starting point
         pole -= start_point_np
 
         line_estimator = Line()
         try:
-            A, B, inliers = line_estimator.fit(pole, thresh=0.2, maxIteration=10000)
+            A, B, inliers = line_estimator.fit(pole, thresh=0.1, maxIteration=6000)
 
-            # Project inlier points onto the direction vector A to find start and end points
             inlier_points = pole[inliers]
-            proj_lengths = np.dot(inlier_points - B, A)
-            start_point = B + np.min(proj_lengths) * A
-            end_point = B + np.max(proj_lengths) * A
+            start_point = inlier_points.min(axis=0)
+            end_point = inlier_points.max(axis=0)
+            # Adjust back to global coordinates if needed
+            B += start_point_np
 
             # Adjust back to global coordinates if needed
             start_point += start_point_np
@@ -379,18 +594,36 @@ def plot_line_and_points(points, model, inliers):
 
 
 if __name__ == "__main__":
-    las_file = './filterabc.las'
+    las_file = './18.las'
     pole_locations = extract_pole_locations(las_file)
 
     grouped_poles = group_poles(pole_locations)
 
     pole_list = center_of_pole(grouped_poles)
 
-    pole_locations_with_height = extract_pole_locations_wo(las_file)
-    grouped_poles2 = group_poles(pole_locations_with_height)
-    res = Ransac3d(grouped_poles2, pole_list)
-    #res = Ransac3d(grouped_poles)
-    segments_to_json(res, 'output_segments.json')
+    #wire_pole_connections = find_nearest_pole(wire_coords, pole_list)
+    wire_coords = extract_wire_locations(las_file)
+    sorted_wire_coords = sorted(wire_coords, key=lambda coord: (coord[0], coord[1]))
+
+    pole_lines = find_pole_line(sorted_wire_coords, pole_list)
+    
+    paths = []
+    for line in pole_lines:
+        paths.append([line['first_pole'], line['second_pole']])
+
+    with open('paths.json', 'w') as path_file:
+            json.dump(paths, path_file, indent=4)
+            #wires = path['coordinates']
+            #for i, wire in enumerate(wires):
+            #    if i == 20:
+            #        break
+            #    print(wire)
+
+    #pole_locations_with_height = extract_pole_locations_wo(las_file)
+    #grouped_poles2 = group_poles(pole_locations_with_height)
+    #res = Ransac3d(grouped_poles2, pole_list)
+    ##res = Ransac3d(grouped_poles)
+    #segments_to_json(res, 'output_segments.json')
 
 
     #for i, group in enumerate(grouped_poles):
@@ -405,10 +638,7 @@ if __name__ == "__main__":
     #    plot_line_and_points(points[:, :2], ransac_result, inliers)
 
 
-    pole_lines = find_pole_line(grouped_poles, pole_list)
 
-    #wire_coords = extract_wire_locations(las_file)
-    #wire_pole_connections = find_nearest_pole(wire_coords, pole_list)
 
     #uncomment for server
     #las_data_stream = sys.stdin.buffer.read()

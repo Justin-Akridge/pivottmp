@@ -8,20 +8,22 @@
     <title>Pivot</title>
   </head>
   <body>
-        <div id="nav-bar">
+      <div id="nav-bar">
       <div id="left-container">
         <img src="/assets/tescologo.webp" id="logo"  alt="Logo"/>
-        <span id="logo-title">Tesco</span>
-        <button id="create-job-button">Create Job</button>
       </div>
       <div id="middle-container">
-        <input id="job-search-input" placeholder="Search Jobs" autocomplete="off" />
-        <button id="joblist-dropdown"><i class="fa-solid fa-caret-down"></i></button>
+        <div id="input-container">
+          <input id="job-search-input" placeholder="Search Jobs" autocomplete="off" />
+          <button id="joblist-dropdown"><i class="fa-solid fa-caret-down"></i></button>
+        </div>
+        <i id="create-job-button" class="fa-solid fa-plus"></i>
       </div>
       <div id="right-container">
         <i class="fa-solid fa-gear"></i>
       </div>
     </div>
+
 
     <div id="jobModal" class="modal">
       <div class="modal-content">

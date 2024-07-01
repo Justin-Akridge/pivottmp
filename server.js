@@ -129,7 +129,6 @@ app.get('/map/:id', async (req, res) => {
 app.get('/getMetadata/:id', async (req, res) => {
   const id = req.params.id
   const url = await fetchMetaDataPublicUrl(id); 
-  console.log(url)
   res.json({ url });
 })
 
@@ -323,125 +322,6 @@ app.post('/convertToOctree/:key', upload.single('file'), async (req, res) => {
   }
 });
 
-//async function processLASFile(key) {
-//  const lasFileName = 'filtered.las';
-//
-//  try {
-//    // Download LAS file from Supabase storage as a stream
-//    const { data, error } = await supabaseClient.storage.from('lidar').streamFrom(`${key}/${lasFileName}`);
-//    if (error) {
-//      throw new Error('Error downloading LAS file: ' + error.message);
-//    }
-//
-//    // Convert stream to buffer
-//    const chunks = [];
-//    const bufferStream = new stream.Writable({
-//      write(chunk, encoding, callback) {
-//        chunks.push(chunk);
-//        callback();
-//      }
-//    });
-//
-//    await new Promise((resolve, reject) => {
-//      data.pipe(bufferStream);
-//      data.on('end', () => {
-//        resolve();
-//      });
-//      data.on('error', (err) => {
-//        reject(err);
-//      });
-//    });
-//
-//    const fileContent = Buffer.concat(chunks);
-//
-//    // Run Python script with the in-memory file content
-//    return new Promise((resolve, reject) => {
-//      const pythonProcess = spawn('python3', ['path/to/extract_pole_locations.py']);
-//
-//      let jsonString = '';
-//      pythonProcess.stdout.on('data', (data) => {
-//        jsonString += data.toString();
-//      });
-//
-//      pythonProcess.stderr.on('data', (data) => {
-//        console.error(`Python stderr: ${data}`);
-//      });
-//
-//      pythonProcess.on('close', async (code) => {
-//        if (code === 0) {
-//          try {
-//            const poleData = JSON.parse(jsonString);
-//            const { data: updateData, error: updateError } = await supabaseClient
-//              .from('jobs')
-//              .update({ pole_locations: poleData })
-//              .eq('id', key)
-//              .single();
-//
-//            if (updateError) {
-//              console.error('Error updating Supabase:', updateError.message);
-//              reject(false);
-//            } else {
-//              console.log('Successfully extracted and updated pole locations.');
-//              resolve(true);
-//            }
-//          } catch (error) {
-//            console.error('Error parsing JSON or updating database:', error);
-//            reject(false);
-//          }
-//        } else {
-//          console.error(`Python script exited with error code: ${code}`);
-//          reject(false);
-//        }
-//      });
-//
-//      // Pass the file content to Python script's stdin
-//      pythonProcess.stdin.write(fileContent);
-//      pythonProcess.stdin.end();
-//    });
-//
-//  } catch (error) {
-//    console.error('Error processing LAS file:', error);
-//  }
-//}
-
-async function processLASFile(key) {
-  const lasFileName = 'filtered.las';
-
-  try {
-    // Download LAS file from Supabase storage as a stream
-    const { data, error } = await supabase.storage.from('lidar').streamFrom(`${key}/${lasFileName}`);
-    if (error) {
-      throw new Error('Error downloading LAS file: ' + error.message);
-    }
-
-    // Convert stream to buffer
-    const chunks = [];
-    const bufferStream = new stream.Writable({
-      write(chunk, encoding, callback) {
-        chunks.push(chunk);
-        callback();
-      }
-    });
-
-    await new Promise((resolve, reject) => {
-      data.pipe(bufferStream);
-      data.on('end', () => {
-        resolve();
-      });
-      data.on('error', (err) => {
-        reject(err);
-      });
-    });
-
-    const fileContent = Buffer.concat(chunks);
-    return fileContent;
-    // Run Python script with the in-memory file content
-
-    console.log('Pole locations extracted successfully.');
-  } catch (error) {
-    console.error('Error processing LAS file:', error);
-  }
-}
 
 async function getPoleLocations(key) {
   // TODO THIS NEEDS TO BE THE NAME OF THE KEY
@@ -665,7 +545,6 @@ app.get('/getMarkersAndPaths/:id', async (req, res) => {
       throw new Error(error.message);
     } 
 
-    console.log(data)
     if (data.poles) {
       res.json(data.poles)
     } else {
@@ -758,5 +637,92 @@ app.get('/getPoleLines', async(req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on port 'http://localhost:${PORT}`);
 });
+
+
+app.get('/paths:id', async (req, res) => {
+  const id = req.params.id;
+  const filePath = path.join(__dirname, `paths.json`);
+
+  // Send the file as a response
+  res.sendFile(filePath);
+})
+
+app.get('/vegetationEncroachments/:id', async (req, res) => {
+  const id = req.params.id;
+  try {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('vegetation')
+      .eq('id', id)
+
+    if (error) {
+      throw new Error('Failed to fetch vegetation encroachments');
+    }
+
+    if (data.vegetation) {
+      res.json(data)
+    } else {
+      const { data, error } = await supabase
+        .storage
+        .from('lidar')
+        .download(`${id}/${id}.las`)
+      
+      const arrayBuffer = await data.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      if (error) {
+        console.error('Error downloading file:', error)
+        return null;
+      } else {
+        console.log('file downloaded')
+      }
+
+      return new Promise((resolve, reject) => {
+        const pythonProcess = spawn('python3', [`${__dirname}/extract_vegetation.py`]);
+
+        pythonProcess.stdin.write(buffer);
+        pythonProcess.stdin.end();
+
+        let jsonString = '';
+        pythonProcess.stdout.on('data', (data) => {
+          jsonString += data.toString();
+        });
+
+        pythonProcess.stderr.on('data', (data) => {
+          console.error(`Python stderr: ${data}`);
+        });
+
+        pythonProcess.on('close', async (code) => {
+          if (code === 0) {
+            try {
+              const poleData = JSON.parse(jsonString);
+              let { data, error } = await supabase
+                .from('jobs')
+                .update({ poles: poleData })
+                .eq('id', key)
+                .single();
+
+              if (error) {
+                console.log("Error updating jobs table", error);
+                reject(false);
+              } else {
+                console.log("Successfully extracted poles");
+                resolve(poleData);
+              }
+            } catch (error) {
+              console.error('Error parsing JSON or updating database:', error);
+              reject(false);
+            }
+          } else {
+            console.error('Python script exited with error code:', code);
+            reject(false);
+          }
+        });
+      });
+    }
+  } catch (error) {
+    console.error('Error fetching vegetation encroachments:', error.message);
+    return [];
+  }  
+})
 
 

@@ -2,12 +2,22 @@ import { localToGeographic } from "./utils.mjs"
 import { initMap } from "./map.mjs"
 import * as THREE from '/libs/three.js/build/three.module.js';
 
+var renderer = new THREE.WebGLRenderer({
+    logarithmicDepthBuffer: true
+});
 
 let path = window.location.pathname
 let segments = path.split('/');
 let id = segments.pop(); 
+let pointCloud;
 
 const viewer = new Potree.Viewer(document.getElementById("potree_render_area"));
+//viewer.loadGUI(() => {
+//			viewer.setLanguage('en');
+//			$("#menu_scene").next().show();
+//			viewer.toggleSidebar();
+//		});
+
 export default viewer;
 await loadPointCloud()
 
@@ -24,10 +34,12 @@ async function fetchMetadata(id) {
   }
 }
 
+
 async function loadPointCloud() {
   const metadata = await fetchMetadata(id);
   Potree.loadPointCloud(`${metadata}`, id, e => {
-    const pointCloud = e.pointcloud;
+    pointCloud = e.pointcloud;
+    pointCloud.position.set(0,0,0)
     viewer.scene.addPointCloud(pointCloud);
 
     let material = e.pointcloud.material;
@@ -38,62 +50,48 @@ async function loadPointCloud() {
     viewer.fitToScreen()
 
     const pos = pointCloud.position
+    console.log(pos)
     const coords = localToGeographic(pos.x, pos.y);
+    console.log(coords)
     // initialize map with location of pointcoud position
     initMap(coords, viewer)
   })
 }
-
-function extractClassifiedPoints(pointCloud, classificationValue) {
-  const polePoints = [];
-  const root = pointCloud.pcoGeometry.root;
-  // Recursive function to traverse the octree
-  function traverse(node) {
-    console.log(node)
-    if (!node) return;
-
-    if (node.loaded) {
-      const buffer = node.geometryNode.geometry.attributes.classification.array;
-      const positions = node.geometryNode.geometry.attributes.position.array;
-
-      for (let i = 0; i < buffer.length; i++) {
-        if (buffer[i] === classificationValue) {
-          const x = positions[3 * i];
-          const y = positions[3 * i + 1];
-          const z = positions[3 * i + 2];
-          console.log(x, y, z)
-          polePoints.push({ x, y, z });
-        }
-      }
-    }
-
-    // Traverse child nodes
-    for (const key in node.children) {
-      if (node.children.hasOwnProperty(key)) {
-        traverse(node.children[key]);
-      }
-    }
-  }
-
-  // Start traversal from the root
-  traverse(root);
-
-  return polePoints;
-}
-
 
 
 // TODO if any points are click make annotations
 let points = []
 let spheres = []
 let lines = []
+function geographicToLocal(position, rotation, scale, x, y, z) {
+  const transformedPoint = new THREE.Vector3(x, y, z);
+
+  // Apply scaling
+  transformedPoint.multiply(new THREE.Vector3(...scale));
+
+  // Apply rotation
+  const euler = new THREE.Euler(...rotation);
+  transformedPoint.applyEuler(euler);
+
+  // Apply translation
+  transformedPoint.add(new THREE.Vector3(...position));
+
+  return transformedPoint;
+}
+
+function addLineToScene(viewer, start, end) {
+  const material = new THREE.LineBasicMaterial({ color: 0xff0000 });
+  const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+  const line = new THREE.Line(geometry, material);
+  viewer.scene.scene.add(line);
+}
+
 addPolesToPotree()
 async function addPolesToPotree() {
-  // Clear existing spheres
-  spheres.forEach(sphere => {
-    viewer.scene.scene.remove(sphere);
+  lines.forEach(line => {
+    viewer.scene.scene.remove(line);
   });
-  spheres = [];
+  lines = []; // Reset lines array
 
   try {
     const response = await fetch('/getPoleLines');
@@ -101,20 +99,28 @@ async function addPolesToPotree() {
       throw new Error('Failed to fetch JSON file');
     }
 
-    const poleLocations = await response.json();
+    const poles = await response.json();
+    poles.forEach(location => {
+    //583,213.62 / 4,387,159.78 / 221.55
+    //583,213.43 / 4,387,191.17 / 220.77
+    //39.79 / 83.30 / 2.86
+      const start = new THREE.Vector3(
+        location.start_point[0],
+        location.start_point[1],
+        location.start_point[2]
+      );
 
-    poleLocations.forEach(location => {
-      const start = new THREE.Vector3(location.start_point[0], location.start_point[1], location.start_point[2]);
-      const end = new THREE.Vector3(location.end_point[0], location.end_point[1], location.end_point[2]);
+      const end = new THREE.Vector3(
+        location.end_point[0],
+        location.end_point[1],
+        location.end_point[2]
+      );
 
-      // Create a geometry for the line
       const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
-
-      // Define material and create the line object
-      const material = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 }); // Adjust linewidth here
+      const material = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 2 });
       const line = new THREE.Line(geometry, material);
 
-      // Add line to the scene
+      // Add line to the scene in world coordinates
       viewer.scene.scene.add(line);
       lines.push(line);
     });

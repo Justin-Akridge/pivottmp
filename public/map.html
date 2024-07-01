@@ -12,18 +12,27 @@
   </head>
   <body>
     <div id="nav-bar">
-      <div id="left-container">
-        <img src="/assets/tescologo.webp" id="logo"  alt="Logo"/>
-        <span id="logo-title">Tesco</span>
-        <button id="create-job-button">Create Job</button>
-      </div>
-      <div id="middle-container">
-        <input id="job-search-input" placeholder="Search Jobs" autocomplete="off" />
-        <button id="joblist-dropdown"><i class="fa-solid fa-caret-down"></i></button>
-      </div>
-      <div id="right-container">
-        <i class="fa-solid fa-gear"></i>
-      </div>
+      <a href="../index.html">
+        <div id="left-container">
+          <div id="home-container">
+            <i class="fa-solid fa-house"></i>
+          </div>
+        </div>
+      </a>
+      <!--<div id="non-home">-->
+        <div id="middle-container">
+          <div id="input-container">
+            <input id="job-search-input" placeholder="Search Jobs" autocomplete="off" />
+            <button id="joblist-dropdown"><i class="fa-solid fa-caret-down"></i></button>
+          </div>
+          <i id="create-job-button" class="fa-solid fa-plus"></i>
+        </div>
+        <div id="right-container">
+          <div id="gear-container">
+            <i class="fa-solid fa-gear"></i>
+          </div>
+        </div>
+        <!--</div>-->
     </div>
     <div id="jobModal" class="modal">
       <div class="modal-content">
@@ -36,8 +45,79 @@
       </div>
     </div>
     <div id="app-container">
+      <div id="potree_sidebar_container"></div>
       <div id="potree_render_area"></div>
+      <div id="angle-container">
+        <i class="fa-solid fa-angle-right"></i>
+        <i class="fa-solid fa-angle-left" class='hidden'></i>
+      </div>
       <div id="map"></div>
+      <div id="pano"></div>
+      <div id="overlay">
+        <i id="ellipsis-map" class="fa-solid fa-ellipsis-vertical" style="font-size: 15px; cursor: pointer;"></i>
+        <i id="trash-icon" class="fa-solid fa-trash" style="font-size: 15px; cursor: pointer;"></i>
+      </div>
+      <div id="tools-container">
+        <div id="tool-container">
+          <i class="fa-solid fa-ellipsis"></i>
+        </div>
+        <div id="tool-container" class="vegetation-tool">
+          <i class="fa-solid fa-tree"></i>
+        </div>
+      </div>
+      <div id="pole-information">
+        <div id="form-container">
+          <div class="form-section">
+            <h3>Scid number:</h3>
+            <input type="text" id="scid-number" placeholder="Enter SCID number">
+            <p class="coordinates">(lat, lon)</p>
+          </div>
+          <div class="form-section">
+            <h3>Title: Pole info</h3>
+            <div class="form-row">
+              <label for="pole-tag">Pole tag ___company __number:</label>
+              <input type="text" id="pole-tag" placeholder="Enter pole tag">
+            </div>
+            <div class="form-row">
+              <label for="pole-height">Pole height:</label>
+              <input type="text" id="pole-height" placeholder="Enter pole height">
+            </div>
+            <div class="form-row">
+              <label for="pole-class">Pole class:</label>
+              <input type="text" id="pole-class" placeholder="Enter pole class">
+            </div>
+            <div class="form-row">
+              <label for="pole-species">Pole species:</label>
+              <input type="text" id="pole-species" placeholder="Enter pole species">
+            </div>
+            <div class="form-row">
+              <label for="pole-spec">Pole spec:</label>
+              <input type="text" id="pole-spec" placeholder="Enter pole spec">
+            </div>
+            <div class="form-row">
+              <label for="google-elevation">Google elevation:</label>
+              <input type="text" id="google-elevation" placeholder="Enter Google elevation">
+            </div>
+          </div>
+          <div class="form-section">
+            <h3>Title: Other</h3>
+            <div class="form-row">
+              <label for="node-type">Node type:</label>
+              <input type="text" id="node-type" placeholder="Enter node type">
+            </div>
+            <div class="form-row">
+              <label for="note">Note:</label>
+              <textarea id="note" placeholder="Enter note"></textarea>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <h3>Title: Photos</h3>
+            <p>Collection of photos</p>
+            <!-- Add your photo collection HTML structure here -->
+          </div>
+        </div>
+      </div>
     </div>
     <ul id="dropdown-menu" class="hidden"></ul>
 

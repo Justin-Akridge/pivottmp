@@ -64,53 +64,58 @@ window.addEventListener('click', (event) => {
 //
 // START OF JOB LIST DROPDOWN MENU
 
-$(document).ready(function() {
+let dropDownMenuOpen = false;
+document.addEventListener('DOMContentLoaded', function() {
   // fetch jobs from the server
   fetch('/jobs')
     .then(response => response.json())
     .then(data => {
       jobList = data;
-    })
+    });
 
   function populateDropdown(items) {
-    const dropDownMenu = $('#dropdown-menu');
-    dropDownMenu.empty();
+    const dropDownMenu = document.getElementById('dropdown-menu');
+    dropDownMenu.innerHTML = ''; // Clear existing items
     items.forEach(item => {
-      console.log(item)
-      dropDownMenu.append(`<a id="anchor"href="/map/${item.id}"><li>${item.name}</li></a>`);
+      const anchor = document.createElement('a');
+      anchor.href = `/map/${item.id}`;
+      const listItem = document.createElement('li');
+      listItem.textContent = item.name;
+      anchor.appendChild(listItem);
+      dropDownMenu.appendChild(anchor);
     });
   }
 
-  $('#joblist-dropdown').on('click', function(event) {
-    event.stopPropagation(); // Prevent event from bubbling up
+  document.getElementById('joblist-dropdown').addEventListener('click', function(event) {
+    dropDownMenuOpen = !dropDownMenuOpen;
+    event.stopPropagation();
     populateDropdown(jobList);
-    $('#dropdown-menu').toggleClass('hidden');
+    document.getElementById('dropdown-menu').classList.toggle('hidden');
   });
 
-  $('#job-search-input').on('focus', function() {
+  document.getElementById('job-search-input').addEventListener('click', function() {
+    event.stopPropagation();
+    if (dropDownMenuOpen) {
+      return;
+    }
+    dropDownMenuOpen = !dropDownMenuOpen;
     populateDropdown(jobList);
-    $('#dropdown-menu').toggleClass('hidden');
+    document.getElementById('dropdown-menu').classList.toggle('hidden');
   });
 
-  $(document).on('click', function(event) {
-    const target = $(event.target);
-    const isDropdownClick = target.closest('#dropdown-menu').length > 0;
-    const isLeftContainerClick = target.closest('#left-container').length > 0;
+  document.addEventListener('click', function(event) {
+    if (!dropDownMenuOpen) return;
 
-    if (!isDropdownClick && !isLeftContainerClick) {
-      $('#dropdown-menu').addClass('hidden');
+    dropDownMenuOpen = !dropDownMenuOpen;
+    const target = event.target;
+    const isDropdownClick = target.closest('#dropdown-menu') !== null;
+
+    if (!isDropdownClick) {
+      document.getElementById('dropdown-menu').classList.add('hidden');
     }
   });
-
-  $('#job-search-input').on('blur', function() {
-    setTimeout(() => $('#dropdown-menu').addClass('hidden'), 100);
-  });
-
-  $('#dropdown-menu').on('click', 'li', function() {
-    $('#job-search-input').val($(this).text());
-    $('#dropdown-menu').addClass('hidden');
-  });
 });
+
 
 
 // UPLOAD FILE

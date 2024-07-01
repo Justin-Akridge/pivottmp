@@ -1,4 +1,8 @@
 /*:root {
+
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
   /* Common properties */
   /*--text-color: rgba(255, 255, 255, 0.87);
   --background-color: #242424;
@@ -13,10 +17,6 @@
   /*--text-color-dark: rgba(255, 255, 255, 0.87);
   --background-color-dark: #242424;
   --accent-color-dark: #646cff;
-
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
 
   color-scheme: light dark;
   color: rgba(255, 255, 255, 0.87);
@@ -35,28 +35,192 @@ body, html {
   padding: 0;
   margin: 0;
   height: 100%;
+  overflow: hidden
+}
+
+#overlay {
+  display: none;
+  position: absolute;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 5px;
+  margin: 10px;
+  border-radius: 3px;
+}
+
+#ellipsis-map, #trash-icon {
+  font-size: 15px;
+  cursor: pointer;
 }
 
 #app-container {
   display: flex;
+  height: calc(100vh - 2.8em);
+}
+
+#pole-information {
+  display: none;
+  border-top: 1px solid black;
+  border-left: 1px solid black;
+  max-width: 600px;
+  min-width: 600px;
+  color: white;
+  background-color: #333;
+  padding: 20px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+}
+
+.form-container {
+  margin-top: 20px;
+}
+
+.form-section {
+  margin-bottom: 20px;
+}
+
+.form-section h3 {
+  font-size: 18px;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.form-row {
+  margin-bottom: 10px;
+}
+
+label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+input[type="text"],
+textarea {
+  width: calc(100% - 20px); /* Adjust width as needed */
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+textarea {
+  resize: vertical;
+  height: 100px; /* Adjust height as needed */
+}
+
+input[type="text"]:focus,
+textarea:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 5px rgba(0, 123, 255, 0.5);
+}
+
+.coordinates {
+  color: #666;
+}
+
+/* Customize form elements as needed */
+
+#tools-container {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  flex-direction: column;
+  border-top: 1px solid black;
+  border-left: 1px solid black;
+  min-width: 53px;
+  max-width: 53px;
+  background-color: #333;
+}
+
+#tool-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border-bottom: 1px solid black;
+  height: 53.5px; 
+  width: 100%;
+  cursor: pointer;
+}
+
+.fa-solid.fa-ellipsis {
+  color: white;
+  font-size: 20px;
+}
+
+#tool-container:hover .fa-solid.fa-ellipsis{
+  color: black;
+}
+
+#tool-container:hover .fa-solid.fa-tree{
+  color: black;
+}
+
+.fa-solid.fa-tree {
+  transition: color 0.3s ease;
+  font-size: 20px;
+  color: white;
+  cursor: pointer
+}
+
+#angle-container {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: fixed;
+  top: 50%;
+  left: 0px;
+  transform: translateY(-50%);
+  z-index: 100;
+}
+
+.fa-solid.fa-angle-left,
+.fa-solid.fa-angle-right {
+  cursor: pointer;
+  z-index: 1000;
+  font-size: 20px;
+  height: 70px;
+  width: 25px;
+  color: black;
+  background-color: rgba(255, 255, 255, .8);
+  border-top-right-radius: 20px;
+  border-bottom-right-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fa-solid.fa-angle-left {
+  display: none; /* Hide initially */
+}
+
+.fa-solid.fa-angle-right {
+  display: none; /* Hide initially */
+}
+
+#pano {
+  display: none;
 }
 
 #map {
-  position: absolute;
-  width: 450px;
-  height: calc(100vh - 2.8em);
-  right: 0;
+  width: 100%;
+  height: 100%;
+  left: 0;
+  top: 0;
+  border-top: 1px solid black;
 }
+
 #potree_render_area {
-	width: 100%;
-	height: calc(100vh - 2.8em);
-  margin-right: 450px;
-	bottom: 0;
-	left: 0;
+  display: none;
+  width: 100%;
+  height: calc(100vh - 2.8em);
+  top: 0;
+  right: 0;
+  bottom: 0;
 }
 
 
-.gm-fullscreen-control button {
+/*.gm-fullscreen-control button {
   width: 100% !important;
   height: 100% !important;
   padding: 0 !important;
@@ -67,20 +231,26 @@ body, html {
   height: 40px !important;
 }
 
+
 .gm-svpc .gm-fullscreen-control {
   width: 100% !important;
-  height: 100% !important;
-  padding: 0 !important;
-  right: 0 !important;
+  /*height: 100% !important;*/
+  /*padding: 0 !important;
+  left: 0 !important;
 }
 .gm-svpc {
   width: 40px !important;
   height: 40px !important;
   right: 0 !important;
 }
-
+*/
 .gm-style iframe + div {
   border:none!important;
+}
+
+#logo {
+  height: 33px;
+  width: auto;
 }
 
 .material-icons {
@@ -89,12 +259,12 @@ body, html {
 }
 
 a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+  color: none;
+  text-decoration: none;
 }
 a:hover {
-  color: #535bf2;
+  color: none;
+  text-decoration: none;
 }
 
 button {
@@ -117,7 +287,8 @@ button:focus-visible {
 }
 
 #nav-bar {
-  height: 2.8em;
+  height: 50px;
+  overflow: hidden;
   top: 0;
   width: 100%;
   background-color: #333;
@@ -127,37 +298,80 @@ button:focus-visible {
 }
 
 #left-container {
-  margin-left: 1.0em;
-  position: relative;
+  height: 100%;
+  padding: 15px;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  border-right: 1px solid black;
+  cursor: pointer;
 }
 
-#logo {
-  max-height: 2.8em;
-  width: auto;
-  margin-right: 0.5em;
+#right-container {
+  height: 100%;
 }
 
-#logo-title {
-  font-size: 1.2em;
+#gear-container {
+  height: 100%;
+  transition: color 0.3s ease;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: white;
+  border-left: 1px solid black;
+  padding-left: 15px;
+}
+
+.fa-solid.fa-gear {
   color: #f2f2f2;
+  font-size: 20px;
+}
+
+#gear-container:hover .fa-solid.fa-gear {
+  color: black;
+}
+
+#home-container {
+  transition: color 0.3s ease;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  color: white;
+}
+
+#left-container:hover #home-container {
+  color: black;
+}
+
+.fa-solid.fa-house {
+  font-size: 20px;
+}
+
+#input-container {
+  border: 1px solid black;
+  border-radius: 5px;
 }
 
 #job-search-input {
-  border: none;
   outline: none;
   padding: 0;
   margin: 0;
   box-shadow: none;
   background: none;
-  font: inherit;
-  color: #f2f2f2;
   appearance: none;
+  font-family: Arial, sans-serif;
   border: none;
-  border-bottom: 1px solid white;
   width: 20em;
   padding: 6px;
+  color: white;
+  font-size: 20px; /* Set a suitable font size */
+  font-weight: 400; /* Adjust font weight as needed */
+}
+
+#job-search-input::placeholder {
+  color: white; /* Brighter placeholder text color */
+  font-weight: 400; /* Optional: change the font weight of the placeholder */
 }
 
 .fa-solid.fa-caret-down {
@@ -292,11 +506,11 @@ button:focus-visible {
   overflow-y: auto;
   border: 1px solid #ccc;
   border-radius: 4px;
-  min-width: 350px;
-  max-width: 350px;
+  min-width: 440px;
+  max-width: 450px;
   max-height: 500px;
   list-style: none;
-  left: 770px;
+  left: 720px;
   top: 48px;
   padding: 0;
   color: black;
@@ -326,8 +540,18 @@ button:focus-visible {
 
 #create-job-button {
   max-height: fit-content;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+  margin-left: 10px;
+  font-size: 20px;
   color: white;
-  margin-left: 2em;
+  border: 1px solid black;
+  padding: 10px;
+  border-radius: 5px;
+}
+#create-job-button:hover {
+  background-color: lightgrey;
+  color: black;
 }
 
 #job-name {
@@ -335,15 +559,12 @@ button:focus-visible {
   width: 20em;
 }
 
-.fa-solid.fa-gear {
-  color: #f2f2f2;
-  font-size: 20px;
-}
 
 #middle-container {
+  padding-top: 5px;
+  padding-bottom: 5px;
   display: flex;
   align-items: center;
-  margin-right: 15em;
 }
 
 #upload-container {
