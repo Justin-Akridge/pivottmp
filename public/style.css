@@ -29,7 +29,9 @@
 
 * {
   box-sizing: border-box;
+  font-family: 'Roboto';
 }
+
 
 body, html {
   padding: 0;
@@ -54,7 +56,10 @@ body, html {
 
 #app-container {
   display: flex;
-  height: calc(100vh - 2.8em);
+  bottom: 0;
+  height: 100%;
+  margin-top: 56px;
+  /*height: calc(100vh - 2.8em);*/
 }
 
 #pole-information {
@@ -119,59 +124,158 @@ textarea:focus {
   color: #666;
 }
 
+/* DBSCAN POPUP */
+.db-modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 400px;
+  max-width: 80%;
+}
+
+.dbscan-tool {
+  font-size: 20px;
+}
+
+.close-dbscan {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close-dbscan:hover {
+  color: black;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  font-size: 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+
+.description {
+  font-size: 14px;
+  color: #666;
+  margin-top: 5px;
+}
+
+/* Loading Modal */
+.loading-modal {
+  display: none;
+  position: fixed;
+  z-index: 1100;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 200px;
+  background-color: rgba(0, 0, 0, 0.8);
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  color: white;
+}
+
+.loading-content {
+  margin: auto;
+}
+
+.loading-bar-container {
+  width: 100%;
+  height: 12px;
+  background-color: #ddd;
+  margin-bottom: 10px;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.loading-bar {
+  width: 100%;
+  height: 100%;
+  background-color: #4CAF50;
+  animation: loadingAnimation 2s linear infinite;
+}
+
+@keyframes loadingAnimation {
+  0%, 100% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+}
 /* Customize form elements as needed */
 
 #tools-container {
+  z-index: 1000;
   display: flex;
   justify-content: flex-start;
   align-items: center;
   flex-direction: column;
-  border-top: 1px solid black;
-  border-left: 1px solid black;
   min-width: 52px;
   max-width: 52px;
-  background-color: #333;
+  background-color: white;
+  box-shadow: -3px 0 5px -2px rgba(0, 0, 0, 0.8);
 }
 
 #tool-container {
   display: flex;
   justify-content: center;
   align-items: center;
-  border-bottom: 1px solid black;
   height: 53.5px; 
   width: 100%;
   cursor: pointer;
+  color: black;
 }
 
 .fa-solid.fa-ellipsis {
-  color: white;
   font-size: 20px;
-}
-
-#tool-container:hover .fa-solid.fa-ellipsis{
-  color: black;
-}
-
-#tool-container:hover .fa-solid.fa-tree{
-  color: black;
 }
 
 .fa-solid.fa-tree {
+  color: green;
   transition: color 0.3s ease;
   font-size: 20px;
-  color: white;
   cursor: pointer
 }
 
 .fa-solid.fa-route {
+  color: blue;
   transition: color 0.3s ease;
   font-size: 20px;
-  color: white;
   cursor: pointer
 }
 
-#tool-container:hover .fa-solid.fa-route{
-  color: black;
+#tool-container.aerial {
+  color: limegreen;
+  font-size: 26px;
+}
+
+#tool-container.reference {
+  color: #f700ff;
+  font-size: 26px;
+}
+
+#tool-container.underground {
+  color: red;
+  font-size: 26px;
 }
 
 #angle-container {
@@ -215,16 +319,17 @@ textarea:focus {
 
 #map {
   width: 100%;
-  height: 100%;
+  height: calc(100vh - 56px);
   left: 0;
   top: 0;
   border-top: 1px solid black;
 }
 
 #potree_render_area {
+  position: relative;
   display: none;
   width: 100%;
-  height: calc(100vh - 2.8em);
+  height: calc(100vh - 56px);
   top: 0;
   right: 0;
   bottom: 0;
@@ -260,8 +365,15 @@ textarea:focus {
 }
 
 #logo {
-  height: 33px;
+  height: 42px;
   width: auto;
+}
+
+#logo-name {
+  margin-left: 5px;
+  font-size: 24px;
+  letter-spacing: 1px;
+  font-weight: 500;
 }
 
 .material-icons {
@@ -285,61 +397,38 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: #007299;
   cursor: pointer;
 }
 
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
-}
 
 #nav-bar {
-  height: 50px;
-  overflow: hidden;
-  top: 0;
-  width: 100%;
-  background-color: #333;
   display: flex;
-  align-items: center;
   justify-content: space-between;
+  height: 56px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: white;
+  color: black;
+  padding: 4px 16px;
+  box-sizing: border-box;
+  box-shadow: 1px 3px 3px rgba(0, 0, 0, 0.8);
+  position: absolute;
+  z-index: 5000;
 }
 
 #left-container {
-  height: 100%;
-  padding: 15px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  border-right: 1px solid black;
-  cursor: pointer;
 }
 
 #right-container {
   height: 100%;
 }
 
-#gear-container {
-  height: 100%;
-  transition: color 0.3s ease;
-  display: flex;
-  align-items: center;
-  cursor: pointer;
-  color: white;
-  border-left: 1px solid black;
-  padding-left: 15px;
-}
-
 .fa-solid.fa-gear {
-  color: #f2f2f2;
   font-size: 20px;
-}
-
-#gear-container:hover .fa-solid.fa-gear {
-  color: black;
 }
 
 #home-container {
@@ -351,42 +440,24 @@ button:focus-visible {
   color: white;
 }
 
-#left-container:hover #home-container {
-  color: black;
-}
-
-.fa-solid.fa-house {
-  font-size: 20px;
-}
-
-#input-container {
-  border: 1px solid black;
-  border-radius: 5px;
-}
-
 #job-search-input {
   outline: none;
-  padding: 0;
-  margin: 0;
   box-shadow: none;
   background: none;
   appearance: none;
-  font-family: Arial, sans-serif;
   border: none;
-  width: 20em;
-  padding: 6px;
-  color: white;
-  font-size: 20px; /* Set a suitable font size */
-  font-weight: 400; /* Adjust font weight as needed */
+  border-bottom: 1px solid black;
+  width: 300px;
+  color: black;
+  font-size: 18px;
+  position: relative; /* Ensure position relative for placeholder positioning */
+  padding-top: 10px;
+  margin-left: 20px;
 }
 
-#job-search-input::placeholder {
-  color: white; /* Brighter placeholder text color */
-  font-weight: 400; /* Optional: change the font weight of the placeholder */
-}
 
 .fa-solid.fa-caret-down {
-  color: white;
+  color: rgba(33, 33, 33, 0.8);
   font-size: 1.3em;
   cursor: pointer;
 }
@@ -416,7 +487,7 @@ button:focus-visible {
   padding: 1.5em;
   border: 1px solid #888;
   width: 40%;
-  height: 30em;
+  height: fit-content;
   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
@@ -501,7 +572,7 @@ button:focus-visible {
 }
 
 .content.content-shift {
-  margin-left: 250px;
+  margin-left: 250px0
 }
 
 /**********Job Container************/
@@ -517,11 +588,11 @@ button:focus-visible {
   overflow-y: auto;
   border: 1px solid #ccc;
   border-radius: 4px;
-  min-width: 440px;
-  max-width: 450px;
+  min-width: 330px;
+  max-width: 330px;
   max-height: 500px;
   list-style: none;
-  left: 720px;
+  left: 140px;
   top: 48px;
   padding: 0;
   color: black;
@@ -546,23 +617,25 @@ button:focus-visible {
 }
 
 #dropdown-menu li:hover {
-  background-color: rgba(0,	114,153, 0.4);
+  background-color: #007299;
 }
 
 #create-job-button {
-  max-height: fit-content;
-  transition: background-color 0.3s ease;
   cursor: pointer;
   margin-left: 10px;
   font-size: 20px;
-  color: white;
-  border: 1px solid black;
-  padding: 10px;
-  border-radius: 5px;
-}
-#create-job-button:hover {
-  background-color: lightgrey;
   color: black;
+  padding: 10px;
+}
+
+
+#download-job {
+  cursor: pointer;
+  margin-left: 10px;
+  font-size: 20px;
+  color: black;
+  padding: 10px;
+  font-weight: 900;
 }
 
 #job-name {
@@ -572,10 +645,57 @@ button:focus-visible {
 
 
 #middle-container {
-  padding-top: 5px;
-  padding-bottom: 5px;
   display: flex;
   align-items: center;
+  margin-right: 600px;
+}
+
+#google-maps-search {
+  outline: none;
+  box-shadow: none;
+  background: none;
+  appearance: none;
+  border: none;
+  border-bottom: 1px solid black;
+  width: 300px;
+  color: black;
+  font-size: 18px;
+  position: relative; /* Ensure position relative for placeholder positioning */
+  padding-top: 10px;
+  margin-left: 10px;
+}
+
+.pac-container {
+  margin-top: 15px;
+  background-color: #FFF;
+  z-index: 1000;
+  min-width: 350px;
+  border-radius: 5px;
+  border: 1px solid #CCC;
+}
+
+.pac-item {
+  padding: 10px;
+  cursor: pointer;
+  font-size: 16px;
+
+}
+
+.pac-item-query {
+  font-size: 16px;
+}
+
+.pac-item:hover {
+  background-color: #007299;
+}
+
+.pac-icon {
+  display: none;
+}
+
+.pac-item-query {
+  font-weight: bold;
+  color: #000;
 }
 
 #upload-container {
@@ -652,36 +772,51 @@ button:focus-visible {
 }
 
 #vegetation-container {
+  z-index: 1000px;
   display: none;
-  background: #333;
-  border-left: 1px solid black;
-  border-top: 1px solid black;
-  height: 100%; 
-  width: 500px;
+  background: white;
+  margin-right: 20px;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  bottom: 0;
+  border: 1px solid black;
+  box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+  max-height: 90vh;
+  border-radius: 5px;
+  min-width: 500px;
   overflow-y: auto;
   color: black;
 }
 
 .list-container {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
+  background: #f1f2f6;
+  border-bottom: 1px solid black;
+  padding-left: 10px;
+  padding-right: 10px;
+  min-height: 50px; /* Example height; adjust as needed */
+  flex-grow: 1; /* Ensure the container expands to fill available space */
 }
 
+.list-container:hover {
+  background-color: #007299;
+}
+
+
 .vegetation-item {
-  border-bottom: 1px solid black;
   padding: 10px;
-  background: #f1f2f6;
   color: black;
   cursor: pointer;
+  min-width: 450px;
+  right: 0;
+  flex: 1;
 }
 
 .circle-dot {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  display: inline-block;
-  margin-right: 10px;
-  vertical-align: middle;
-  background-color: blue;
+  padding: 5px;
 }

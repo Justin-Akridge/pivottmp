@@ -1,3 +1,3 @@
-490
+TODO:
 
-when i extract marker and path locations I will then remove all points from point cloud that are outside of the pole line. I will then convert it with the potree converter. so that all the irrelevant points will be excluded from the lidar.
+[] finish the dbscan, left off getting user input to pass to the server

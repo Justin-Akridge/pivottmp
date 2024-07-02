@@ -39,20 +39,18 @@ async function loadPointCloud() {
   const metadata = await fetchMetadata(id);
   Potree.loadPointCloud(`${metadata}`, id, e => {
     pointCloud = e.pointcloud;
-    pointCloud.position.set(0,0,0)
+    //pointCloud.position.set(0,0,0)
     viewer.scene.addPointCloud(pointCloud);
 
     let material = e.pointcloud.material;
     material.shape = Potree.PointShape.CIRCLE
     material.pointSizeType = Potree.PointSizeType.ADAPTIVE;
-    material.size = 0.1;
+    material.size = 0.2;
     material.activeAttributeName = "classification";
     viewer.fitToScreen()
 
     const pos = pointCloud.position
-    console.log(pos)
     const coords = localToGeographic(pos.x, pos.y);
-    console.log(coords)
     // initialize map with location of pointcoud position
     initMap(coords, viewer)
   })
@@ -86,7 +84,7 @@ function addLineToScene(viewer, start, end) {
   viewer.scene.scene.add(line);
 }
 
-addPolesToPotree()
+//addPolesToPotree()
 async function addPolesToPotree() {
   lines.forEach(line => {
     viewer.scene.scene.remove(line);

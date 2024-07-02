@@ -41,9 +41,9 @@ createJobForm.addEventListener('submit', async (e) => {
   }
 })
 
-jobSearchInput.addEventListener('focus', () => {
-  jobSearchInput.value = '';
-})
+//jobSearchInput.addEventListener('focus', () => {
+//  jobSearchInput.value = '';
+//})
 
 createJobButton.addEventListener('click', () => {
   modal.style.display = "block";
@@ -94,6 +94,8 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   document.getElementById('job-search-input').addEventListener('click', function() {
+    jobSearchInput.value = '';
+
     event.stopPropagation();
     if (dropDownMenuOpen) {
       return;

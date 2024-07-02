@@ -12,25 +12,21 @@
   </head>
   <body>
     <div id="nav-bar">
-      <a href="../index.html">
-        <div id="left-container">
-          <div id="home-container">
-            <i class="fa-solid fa-house"></i>
-          </div>
-        </div>
-      </a>
+      <div id="left-container">
+        <img src="/assets/tescologo.webp" id="logo"  alt="Logo"/>
+        <span id="logo-name">Pivot</span>
+        <input id="job-search-input" placeholder="Search Jobs" autocomplete="off" />
+        <button id="joblist-dropdown"><i class="fa-solid fa-caret-down"></i></button>
+        <i id="create-job-button" class="fa-solid fa-plus"></i>
+        <i id="download-job" class="fa-solid fa-download"></i>
+      </div>
       <!--<div id="non-home">-->
         <div id="middle-container">
-          <div id="input-container">
-            <input id="job-search-input" placeholder="Search Jobs" autocomplete="off" />
-            <button id="joblist-dropdown"><i class="fa-solid fa-caret-down"></i></button>
-          </div>
-          <i id="create-job-button" class="fa-solid fa-plus"></i>
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input id="google-maps-search" placeholder="Search location..." />
         </div>
         <div id="right-container">
-          <div id="gear-container">
-            <i class="fa-solid fa-gear"></i>
-          </div>
+          <i class="fa-solid fa-gear"></i>
         </div>
         <!--</div>-->
     </div>
@@ -69,11 +65,61 @@
         <div id="tool-container">
           <i class="fa-solid fa-ellipsis"></i>
         </div>
+        <div id="tool-container" class="dbscan-tool">
+          <i class="fa-solid fa-bullseye"></i>
+        </div>
         <div id="tool-container" class="vegetation-tool">
           <i class="fa-solid fa-tree"></i>
         </div>
         <div id="tool-container" class="route-tool">
           <i class="fa-solid fa-route"></i>
+        </div>
+        <div id="tool-container" class="aerial">
+          <i class="fa-solid fa-pencil"></i>
+        </div>
+        <div id="tool-container" class="reference">
+          <i class="fa-solid fa-pencil"></i>
+        </div>
+        <div id="tool-container" class="underground">
+          <i class="fa-solid fa-pencil"></i>
+        </div>
+      </div>
+      <div id="dbscan-modal" class="db-modal">
+        <div class="modal-content">
+          <span class="close-dbscan">&times;</span>
+          <h2>DBSCAN Parameters</h2>
+          <p>DBSCAN (Density-Based Spatial Clustering of Applications with Noise) is a clustering algorithm that groups points based on their density.</p>
+          <form id="dbscan-form">
+            <div class="form-group">
+              <label for="eps">Epsilon (EPS):</label>
+              <input type="text" id="eps" name="eps" placeholder="Enter epsilon value..." required>
+              <p class="description">The maximum distance between two points to be considered as part of the same neighborhood.</p>
+            </div>
+
+            <div class="form-group">
+              <label for="min-points">Min Points:</label>
+              <input type="text" id="min-points" name="min-points" placeholder="Enter min points value..." required>
+              <p class="description">The minimum number of points required to form a dense region (cluster).</p>
+            </div>
+
+            <div class="form-group">
+              <label for="min-height">Min Height:</label>
+              <input type="text" id="min-height" name="min-height" placeholder="Enter min height value...">
+              <p class="description">The minimum height of vegetation to be considered. Leave empty for no minimum height requirement.</p>
+              <input type="checkbox" id="use-min-height" name="use-min-height">
+              <label for="use-min-height">Use Min Height</label>
+            </div>
+            <button type="submit">Apply DBSCAN</button>
+          </form>
+        </div>
+      </div>
+      <!-- Loading Modal -->
+      <div id="loading-modal" class="loading-modal">
+        <div class="loading-content">
+          <div class="loading-bar-container">
+            <div class="loading-bar"></div>
+          </div>
+          <p>Loading...</p>
         </div>
       </div>
       <div id="vegetation-container" class="vegetation-container">
@@ -133,7 +179,7 @@
     </div>
     <ul id="dropdown-menu" class="hidden"></ul>
 
-    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB6zR9qjs1t7SfST_cZZfQyceT2VZeUD7k&libraries=geometry&callback=initMap" defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCpEvTtFCp5on-cCV3fAkOSRToCSvTFIXM&libraries=geometry,places&callback=initMap" defer></script>
     <script src="/libs/three.js/build/three.module.js"></script>
     <script src="/libs/jquery/jquery-3.1.1.min.js"></script>
     <script src="/libs/spectrum/spectrum.js"></script>

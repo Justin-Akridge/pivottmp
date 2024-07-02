@@ -35,6 +35,26 @@ export async function initMap(coords) {
   };
 
   map = new google.maps.Map(document.getElementById("map"), mapOptions);
+  const input = document.getElementById('google-maps-search');
+  const autocomplete = new google.maps.places.Autocomplete(input);
+
+  autocomplete.bindTo('bounds', map);
+
+  autocomplete.addListener('place_changed', () => {
+    const place = autocomplete.getPlace();
+    if (!place.geometry) {
+      console.log("No details available for input: '" + place.name + "'");
+      return;
+    }
+
+    // If the place has a geometry, present it on the map
+    if (place.geometry.viewport) {
+      map.fitBounds(place.geometry.viewport);
+    } else {
+      map.setCenter(place.geometry.location);
+      map.setZoom(17);
+    }
+  });
   const poleLocations = await loadPolePositions(id);
   paths = await loadMidspans(id);
 
@@ -54,7 +74,6 @@ export async function initMap(coords) {
       bounds.extend(marker.position);
     });
     map.fitBounds(bounds);
-    map.setZoom(map.getZoom());
   }
 
   const panorama = new google.maps.StreetViewPanorama(
@@ -247,16 +266,19 @@ const vegetationMarkerIcon = (color, isSelected) => {
   };
 };
 
-// TODO NEED TO ADD REFERENCE END POINT
 const MarkerIcon = (markerType, isSelected) => {
   if (markerType === 'aerial') {
-    const scale = 6;
-    const color = "red"
-    const opacity = isSelected ? 1 : 1;
+    const scale = 4;
+    const borderColor = "black";
+    const fillColor = "red";
+    const dotColor = isSelected ? "gold" : "black";
     const glowColor = isSelected ? 'gold' : '';
 
     const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${scale * 4}" height="${scale * 4}">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${scale * 1}" height="${scale * 1}">
+        <circle cx="12" cy="12" r="${scale * 2}" fill="${fillColor}" stroke="${borderColor}" stroke-width="${scale / 2}" stroke-linecap="round" />
+        <circle cx="12" cy="12" r="${scale / 2}" fill="${dotColor}" />
+        ${isSelected ? `<circle cx="12" cy="12" r="${scale * 2}" fill="none" stroke="${glowColor}" stroke-width="2.0" filter="url(#glow)" />` : ''}
         <defs>
           <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
             <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
@@ -266,37 +288,6 @@ const MarkerIcon = (markerType, isSelected) => {
             </feMerge>
           </filter>
         </defs>
-        <circle cx="12" cy="12" r="${scale}" fill="${color}" fill-opacity="${opacity}" ${isSelected ? `stroke="${glowColor}" stroke-width="1.5" filter="url(#glow)"` : ''} />
-      </svg>
-    `;
-
-    return {
-      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
-      scaledSize: new window.google.maps.Size(scale * 4, scale * 4),
-      anchor: new window.google.maps.Point(scale * 2, scale * 2)
-    };
-  } else if (markerType === 'reference') {
-    const glowColor = "#f700ff";
-    const scale = 2;
-    const color = "#f700ff";
-    const selectedColor = "#f700ff";
-
-    const svg = `
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${scale * 4}" height="${scale * 4}">
-        <defs>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
-            <feMerge>
-              <feMergeNode in="coloredBlur"/>
-              <feMergeNode in="SourceGraphic"/>
-            </feMerge>
-          </filter>
-        </defs>
-        <polygon
-          points="12,2 15,9 22,9 17,14 18,21 12,17 6,21 7,14 2,9 9,9"
-          fill="${isSelected ? selectedColor : color}"
-          ${isSelected ? `stroke="${glowColor}" stroke-width="2" filter="url(#glow)"` : ''}
-        />
       </svg>
     `;
 
@@ -307,6 +298,67 @@ const MarkerIcon = (markerType, isSelected) => {
     };
   }
 };
+
+// TODO NEED TO ADD REFERENCE END POINT
+//const MarkerIcon = (markerType, isSelected) => {
+//  if (markerType === 'aerial') {
+//    const scale = 6;
+//    const color = "red"
+//    const opacity = isSelected ? 1 : 1;
+//    const glowColor = isSelected ? 'gold' : '';
+//
+//    const svg = `
+//      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${scale * 4}" height="${scale * 4}">
+//        <defs>
+//          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+//            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+//            <feMerge>
+//              <feMergeNode in="coloredBlur"/>
+//              <feMergeNode in="SourceGraphic"/>
+//            </feMerge>
+//          </filter>
+//        </defs>
+//        <circle cx="12" cy="12" r="${scale}" fill="${color}" fill-opacity="${opacity}" ${isSelected ? `stroke="${glowColor}" stroke-width="1.5" filter="url(#glow)"` : ''} />
+//      </svg>
+//    `;
+//
+//    return {
+//      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+//      scaledSize: new window.google.maps.Size(scale * 4, scale * 4),
+//      anchor: new window.google.maps.Point(scale * 2, scale * 2)
+//    };
+//  } else if (markerType === 'reference') {
+//    const glowColor = "#f700ff";
+//    const scale = 2;
+//    const color = "#f700ff";
+//    const selectedColor = "#f700ff";
+//
+//    const svg = `
+//      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${scale * 4}" height="${scale * 4}">
+//        <defs>
+//          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+//            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+//            <feMerge>
+//              <feMergeNode in="coloredBlur"/>
+//              <feMergeNode in="SourceGraphic"/>
+//            </feMerge>
+//          </filter>
+//        </defs>
+//        <polygon
+//          points="12,2 15,9 22,9 17,14 18,21 12,17 6,21 7,14 2,9 9,9"
+//          fill="${isSelected ? selectedColor : color}"
+//          ${isSelected ? `stroke="${glowColor}" stroke-width="2" filter="url(#glow)"` : ''}
+//        />
+//      </svg>
+//    `;
+//
+//    return {
+//      url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+//      scaledSize: new window.google.maps.Size(scale * 4, scale * 4),
+//      anchor: new window.google.maps.Point(scale * 2, scale * 2)
+//    };
+//  }
+//};
 
 function checkIfPathExists(newPath) {
   let newFirst = newPath[0]
@@ -342,7 +394,7 @@ function createNewPath(firstPole, secondPole, map) {
   const midspan = {
     path: path,
     strokeColor: 'limegreen',
-    strokeWeight: 3,
+    strokeWeight: 7,
     type: 'aerial',
   }
 
@@ -353,7 +405,7 @@ function createNewPath(firstPole, secondPole, map) {
     path: path.map,
     map: map,
     strokeColor: color,
-    strokeWeight: 3
+    strokeWeight: 7
   });
 
   createOverlayForPolyline(path.map, polyline, map);
@@ -406,6 +458,7 @@ function createOverlayForPolyline(path, polyline, map) {
       div.style.padding = '2px 5px';
       div.style.borderRadius = '3px';
       div.style.position = 'absolute';
+      div.style.margin = '5px';
       this.getPanes().floatPane.appendChild(div);
       this.div = div;
     };
@@ -443,7 +496,8 @@ angleRight.addEventListener('click', function() {
   angleLeft.style.display = 'flex';
   angleRight.style.display = 'none';
   if (poleInformationBoxOpen) {
-    angleContainer.style.left = '635px';
+    //angleContainer.style.left = '635px';
+    angleContainer.style.left = '935px';
   } else {
     angleContainer.style.left = '935px';
   }
@@ -488,7 +542,7 @@ function handleMarkerClick(marker, map) {
     marker.setIcon(MarkerIcon('aerial', true))
     currMarker = marker;
     const geoPosition = marker.geoPosition;
-    targetTo(viewer, new THREE.Vector3(geoPosition.x, geoPosition.y, geoPosition.z), 0.02);
+    targetTo(viewer, new THREE.Vector3(geoPosition.x, geoPosition.y, geoPosition.z + 3), 0.02);
     
     if (arrowIsDisplayed) {
       return;
@@ -505,7 +559,8 @@ function handleMarkerDblClick(marker) {
   poleInformation.style.display = 'block'
 
   renderArea.style.display = 'block';
-  angleContainer.style.left = '635px';
+  angleContainer.style.left = '935px';
+
   angleLeft.style.display = 'flex';
   angleRight.style.display = 'none';
 }
@@ -534,8 +589,8 @@ function targetTo(viewer, target) {
   viewer.scene.orbitControls = true;
 
   let d = viewer.scene.view.direction.multiplyScalar(-1);
-  let cameraTargetPosition = new THREE.Vector3().addVectors(target, d.multiplyScalar(10));
-  let animationDuration = 400;
+  let cameraTargetPosition = new THREE.Vector3().addVectors(target, d.multiplyScalar(15));
+  let animationDuration = 200;
   let easing = TWEEN.Easing.Quartic.Out;
 
   let tweens = []
@@ -571,6 +626,91 @@ function targetTo(viewer, target) {
 };
 
 
+// DBSCAN
+const dbscanTool = document.querySelector('.dbscan-tool');
+const dbscanModal = document.getElementById('dbscan-modal');
+const closeBtn = document.querySelector('.close-dbscan');
+
+function openDBScanModal() {
+  dbscanModal.style.display = 'block';
+}
+
+function closeDBScanModal() {
+  console.log('here')
+  dbscanModal.style.display = 'none';
+}
+
+dbscanTool.addEventListener('click', openDBScanModal);
+closeBtn.addEventListener('click', closeDBScanModal);
+
+window.addEventListener('click', function(event) {
+  if (event.target === dbscanModal) {
+    closeDBScanModal();
+  }
+});
+
+const dbscanForm = document.getElementById('dbscan-form');
+dbscanForm.addEventListener('submit', async function(event) {
+  event.preventDefault();
+  const epsilon = document.getElementById('eps');
+  const minPts = document.getElementById('min-points');
+  const useMinHeight = document.getElementById('use-min-height');
+  const minHeight = document.getElementById('min-height');
+  console.log(useMinHeight);
+
+  const parsedEps = parseFloat(epsilon).value;
+  const parsedMinPts = parseInt(minPts).value;
+
+  epsilon.value = '';
+  minPts.value = ''; 
+
+  closeDBScanModal();
+  showLoadingModal();
+  let res = await runDbscanForVegetation(parsedEps, parsedMinPts, minHeight);
+  closeLoadingModal();
+});
+
+async function runDbscanForVegetation(parsedEps, parsedMinPts, minHeight) {
+  const options = {
+    parsedEps: parsedEps,
+    parsedMinPts: parsedMinPts,
+    minHeight: minHeight
+  }
+  try {
+    await fetch(`/vegetationDbscan/${id}`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify( options )
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was no ok');
+      }
+      return response.json();
+    })
+  } catch(error) {
+    console.error('Error running dbscan: ', error);
+  }
+}
+
+
+// Loading modal for dbscan
+function showLoadingModal() {
+  const loadingModal = document.getElementById('loading-modal');
+  loadingModal.style.display = 'block';
+}
+
+// Function to close loading modal
+function closeLoadingModal() {
+  const loadingModal = document.getElementById('loading-modal');
+  loadingModal.style.display = 'none';
+}
+
+// END OF DBSCAN
+
+
 // VEGETATION ENCROACHMENTS
 let vegetationToolActive = false;
 let vegetationEncroachments = [];
@@ -584,16 +724,7 @@ async function toggleVegetationTool() {
     alert('Midspans must first be save to generate vegetation encroachments!')
     return
   }
-
-  vegetationToolActive = !vegetationToolActive;
-
-  if (vegetationToolActive) {
-    vegetationTool.style.border = '1px solid blue'
-  } else {
-    vegetationTool.style.border = 'none'
-    vegetationTool.style.borderBottom = '1px solid black'
-  }
-
+  vegetationToolActive = true;
 
   if (vegetationToolActive) {
     if (!fetchedFromServer) {
@@ -637,9 +768,13 @@ function populateVegatationSidebar() {
     const listContainer = document.createElement('div')
     listContainer.classList.add('list-container');
 
+    listContainer.dataset.x = vegetation[0].position[0];
+    listContainer.dataset.y = vegetation[0].position[1];
+    listContainer.dataset.z = vegetation[0].position[2];
+
     const circleDot = document.createElement('div');
     circleDot.classList.add('circle-dot');
-    circleDot.style.backgroundColor = vegetation.color;
+    circleDot.style.backgroundColor = color;
     listContainer.appendChild(circleDot);
 
     const listItem = document.createElement('div');
@@ -652,11 +787,26 @@ function populateVegatationSidebar() {
          <p><strong>Position:</strong> (${vegetation[0].position[0]}, ${vegetation[0].position[1]}, ${vegetation[0].position[2]})</p>
        </details>
     `;
+
     listContainer.appendChild(listItem)
     // Append the list item to the sidebar
     vegetationSidebar.appendChild(listContainer);
   })
 }
+
+vegetationSidebar.addEventListener('click', function(event) {
+  const listContainer = event.target.closest('.list-container');
+  if (listContainer) {
+    const x = Number(listContainer.dataset.x);
+    const y = Number(listContainer.dataset.y);
+    const z = Number(listContainer.dataset.z);
+    targetTo(viewer, new THREE.Vector3(x, y, z + 3), 0.02);
+    renderArea.style.display = 'block';
+    //angleContainer.style.left = '635px';
+    //angleLeft.style.display = 'flex';
+    //angleRight.style.display = 'none';
+  }
+});
 
 let vegetationMarkers = []
 
@@ -667,9 +817,17 @@ function displayVegetationEncroachments() {
   } else {
     console.log(vegetationEncroachments)
     for (let point in vegetationEncroachments) {
-      let vegetation = vegetationEncroachments[point][0]
+      let vegetations = vegetationEncroachments[point]
+      let chosen = null;
+      vegetations.forEach(veg => {
+        if (chosen === null) {
+          chosen = veg;
+        } else if(veg.dist < chosen.dist) {
+          chosen = veg;
+        }
+      })
 
-      let distance = vegetation.dist
+      let distance = chosen.dist
       let color;
       if (distance >= 10) {
         color = 'limegreen'
@@ -680,15 +838,15 @@ function displayVegetationEncroachments() {
       }
 
 
-      let locationLatLng = localToGeographic(vegetation.position[0], vegetation.position[1]);
+      let locationLatLng = localToGeographic(chosen.position[0], chosen.position[1]);
       const position = new google.maps.LatLng(locationLatLng.lat, locationLatLng.lng);
       
       const markerOptions = {
         geoPosition: {
-          "x": vegetation.position[0],
-          "y": vegetation.position[1],
-          "z": vegetation.position[2],
-          "height": vegetation.position[3],
+          "x": chosen.position[0],
+          "y": chosen.position[1],
+          "z": chosen.position[2],
+          "height": chosen.position[3],
         },
         position: position,
         map: map,
@@ -726,6 +884,8 @@ async function fetchVegetationEncroachments() {
     fetchedFromServer = true;
   } catch (error) {
     console.error('Error fetching vegetation encroachments from the server', error.message);
+  } finally {
+    // close bar
   }
 }
 
