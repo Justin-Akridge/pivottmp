@@ -99,6 +99,7 @@ def find_wires(wire_locations, max_distance=1.0):
         print(points)
         wire_points = []
 
+
         for point in points:
             if point not in wire_points:
                 wire_path = trace_wire_path(point, points, max_distance)
@@ -220,38 +221,47 @@ def distance_to_line_segment(point, line_start, line_end):
 
     return distance_feet
 
+def convert_keys_to_str(data):
+    if isinstance(data, dict):
+        return {str(k): convert_keys_to_str(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [convert_keys_to_str(i) for i in data]
+    else:
+        return data
+
 if __name__ == '__main__':
     las_data_stream = sys.stdin.buffer.read()
-    midspans_data = sys.stdin.read()
-    #input = sys.stdin.readlines()
-    #tokens = input.split()
-    #midspans_data = int(tokens[0])
-    #las_data_stream = int(tokens[1])
+    midspans_data = sys.argv[1]
+    midspans_data = json.loads(midspans_data)
+    #print("Midspans Data:", midspans_data, file=sys.stderr)
 
-    #midspans_file_path = './midspans.json'
-    #las_data_stream = './18.las'
-
-    #with open(midspans_file_path, 'r') as file:
-    #    midspans_data = json.load(file)
     geo_paths = extract_geo_paths(midspans_data)
 
     veg_locations = extract_veg_locations(las_data_stream)
     veg_groups = group_veg(veg_locations)
 
     veg_near_midspan = find_veg_near_midspan(geo_paths, veg_groups, tolerance=20)
-    #print(json.dumps(veg_near_midspan))  # Output the result as JSON
+    veg_near_midspan = convert_keys_to_str(veg_near_midspan)
+    print(json.dumps(veg_near_midspan))
+    sys.stdout.flush()
+
+    #midspans_file_path = './midspans.json'
+    #las_data_stream = './18.las'
+
+    #with open(midspans_file_path, 'r') as file:
+    #    midspans_data = json.load(file)
 
 
-    for line_segment, veg_points in veg_near_midspan.items():
-        print(f"Line Segment: {line_segment}")
-        for veg_point in veg_points:
-            if isinstance(veg_point, dict):
-                print(f"\tVegetation Point: {veg_point['position']}, Distance: {veg_point['dist']:.2f} feet")
-            elif isinstance(veg_point, list):
-                print(f"\tVegetation Point: {veg_point}, Distance: Not calculated")
-            else:
-                print(f"\tVegetation Point: {veg_point}, Distance: Unknown format")
-        print()
+    #for line_segment, veg_points in veg_near_midspan.items():
+    #    print(f"Line Segment: {line_segment}")
+    #    for veg_point in veg_points:
+    #        if isinstance(veg_point, dict):
+    #            print(f"\tVegetation Point: {veg_point['position']}, Distance: {veg_point['dist']:.2f} feet")
+    #        elif isinstance(veg_point, list):
+    #            print(f"\tVegetation Point: {veg_point}, Distance: Not calculated")
+    #        else:
+    #            print(f"\tVegetation Point: {veg_point}, Distance: Unknown format")
+    #    print()
 
     #wire_coords = extract_wire_locations(las_data_stream)
     #wire_locations = find_wire_locations_by_x(geo_paths, wire_coords)

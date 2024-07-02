@@ -648,8 +648,8 @@ app.get('/vegetationEncroachments/:id', async (req, res) => {
       throw new Error('Failed to fetch vegetation encroachments');
     }
 
-    if (data && data.vegetation) {
-      res.json(data);
+    if (data) {
+      res.json(data[0].vegetation);
     } else {
       const { data: fileData, error: fileError } = await supabase
         .storage
@@ -670,18 +670,10 @@ app.get('/vegetationEncroachments/:id', async (req, res) => {
         .eq('id', id)
         .single()
 
-      const pythonProcess = spawn('python3', [`${__dirname}/extract_vegetation.py`]);
+      const pythonProcess = spawn('python3', [`${__dirname}/extract_vegetation.py`, JSON.stringify(midspanData.midspans)]);
 
       pythonProcess.stdin.write(buffer);
-      pythonProcess.stdin.write(JSON.stringify(midspanData));
       pythonProcess.stdin.end();
-
-      //if (midspanError || !midspanData) {
-      //  pythonProcess.stdin.write(JSON.stringify([]));
-      //} else {
-      //  pythonProcess.stdin.write(JSON.stringify(midspanData));
-      //}
-      //pythonProcess.stdin.end();
 
       let result;
       pythonProcess.stdout.on('data', (data) => {
@@ -697,6 +689,7 @@ app.get('/vegetationEncroachments/:id', async (req, res) => {
         if (code === 0) {
           try {
             const vegetationEncroachments = JSON.parse(result);
+            console.log(vegetationEncroachments)
             const { data: updateData, error: updateError } = await supabase
               .from('jobs')
               .update({ vegetation: vegetationEncroachments })

@@ -1,4 +1,3 @@
-
 export function localToGeographic(x, y) {
   const utmZone = '+proj=utm +zone=16 +datum=WGS84 +units=m +no_defs';
   const wgs84 = '+proj=longlat +datum=WGS84 +no_defs';

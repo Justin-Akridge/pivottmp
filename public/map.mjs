@@ -5,6 +5,8 @@ let path = window.location.pathname
 let segments = path.split('/');
 let id = segments.pop(); 
 
+let map;
+
 let markers = []
 let distanceOverlays = []
 let paths = []
@@ -14,6 +16,7 @@ let selectedMarker = null;
 let streetViewTabOpened = false;
 let streetView;
 let pegmanMarker;
+
 
 export async function initMap(coords) {
   const mapOptions = {
@@ -31,7 +34,7 @@ export async function initMap(coords) {
     streetViewControl: true
   };
 
-  const map = new google.maps.Map(document.getElementById("map"), mapOptions);
+  map = new google.maps.Map(document.getElementById("map"), mapOptions);
   const poleLocations = await loadPolePositions(id);
   paths = await loadMidspans(id);
 
@@ -216,6 +219,33 @@ async function loadPolePositions(id) {
     return [];
 	}
 }
+
+const vegetationMarkerIcon = (color, isSelected) => {
+  const scale = 5;
+  const opacity =  1;
+  const glowColor = isSelected ? 'gold' : '';
+
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="${scale * 4}" height="${scale * 4}">
+      <defs>
+        <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge>
+            <feMergeNode in="coloredBlur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+      </defs>
+      <circle cx="12" cy="12" r="${scale}" fill="${color}" fill-opacity="${opacity}" ${isSelected ? `stroke="${glowColor}" stroke-width="1.5" filter="url(#glow)"` : ''} />
+    </svg>
+  `;
+
+  return {
+    url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+    scaledSize: new window.google.maps.Size(scale * 4, scale * 4),
+    anchor: new window.google.maps.Point(scale * 2, scale * 2)
+  };
+};
 
 // TODO NEED TO ADD REFERENCE END POINT
 const MarkerIcon = (markerType, isSelected) => {
@@ -549,11 +579,14 @@ let fetchedFromServer = false;
 const vegetationTool = document.querySelector('.vegetation-tool');
 vegetationTool.addEventListener('click', toggleVegetationTool);
 
-function toggleVegetationTool() {
+async function toggleVegetationTool() {
   if (paths.length === 0) {
     alert('Midspans must first be save to generate vegetation encroachments!')
+    return
   }
+
   vegetationToolActive = !vegetationToolActive;
+
   if (vegetationToolActive) {
     vegetationTool.style.border = '1px solid blue'
   } else {
@@ -563,18 +596,112 @@ function toggleVegetationTool() {
 
 
   if (vegetationToolActive) {
-    fetchVegetationEncroachments()
+    if (!fetchedFromServer) {
+      await fetchVegetationEncroachments()
+    }
     displayVegetationEncroachments();
+    populateVegatationSidebar();
   } else {
     removeVegetationEncroachments();
+    vegetationSidebar.style.display = 'none';  
   }
 }
 
+const vegetationSidebar = document.querySelector('#vegetation-container');
+
+function populateVegatationSidebar() {
+  if (vegetationEncroachments.length === 0) return;
+  vegetationSidebar.style.display = 'block';  
+  
+  vegetationSidebar.innerHTML = '';
+
+  let encroachmentsArray = Object.values(vegetationEncroachments);
+
+  // Sort the array by distance
+  encroachmentsArray.sort((a, b) => a.dist - b.dist);
+
+  encroachmentsArray.forEach((vegetation) => {
+
+    let distance = vegetation[0].dist
+    let color;
+    if (distance >= 10) {
+      color = 'limegreen'
+    } else if (distance >= 5) {
+      color = 'yellow'
+    } else {
+      color = 'red'
+    }
+
+
+    let locationLatLng = localToGeographic(vegetation[0].position[0], vegetation[0].position[1]);
+    const listContainer = document.createElement('div')
+    listContainer.classList.add('list-container');
+
+    const circleDot = document.createElement('div');
+    circleDot.classList.add('circle-dot');
+    circleDot.style.backgroundColor = vegetation.color;
+    listContainer.appendChild(circleDot);
+
+    const listItem = document.createElement('div');
+    listItem.classList.add('vegetation-item');
+    listItem.innerHTML += `
+       <p><strong>lat/lng:</strong> (${locationLatLng.lat}, ${locationLatLng.lng})</p>
+       <details>
+         <summary>Additional Details</summary>
+         <p><strong>Distance:</strong> ${distance.toFixed(2)} feet</p>
+         <p><strong>Position:</strong> (${vegetation[0].position[0]}, ${vegetation[0].position[1]}, ${vegetation[0].position[2]})</p>
+       </details>
+    `;
+    listContainer.appendChild(listItem)
+    // Append the list item to the sidebar
+    vegetationSidebar.appendChild(listContainer);
+  })
+}
+
+let vegetationMarkers = []
+
 function displayVegetationEncroachments() {
   if (vegetationEncroachments.length === 0) {
+    alert('no vegetation encroachments!')
     //popup displaying no vegetation encroachments
   } else {
-    //add markers to map and scene
+    console.log(vegetationEncroachments)
+    for (let point in vegetationEncroachments) {
+      let vegetation = vegetationEncroachments[point][0]
+
+      let distance = vegetation.dist
+      let color;
+      if (distance >= 10) {
+        color = 'limegreen'
+      } else if (distance >= 5) {
+        color = 'yellow'
+      } else {
+        color = 'red'
+      }
+
+
+      let locationLatLng = localToGeographic(vegetation.position[0], vegetation.position[1]);
+      const position = new google.maps.LatLng(locationLatLng.lat, locationLatLng.lng);
+      
+      const markerOptions = {
+        geoPosition: {
+          "x": vegetation.position[0],
+          "y": vegetation.position[1],
+          "z": vegetation.position[2],
+          "height": vegetation.position[3],
+        },
+        position: position,
+        map: map,
+        selected: false,
+        icon: vegetationMarkerIcon(color, false),
+        draggable: true,
+      };
+
+      const marker = new google.maps.Marker(markerOptions);
+      //marker.addListener('click', (e) => handleMarkerClick(marker, map));
+      //marker.addListener('dblclick', (e) => handleMarkerDblClick(marker, map));
+      vegetationMarkers.push(marker);
+    }
   }
 }
 
@@ -582,11 +709,12 @@ function removeVegetationEncroachments() {
   if (vegetationEncroachments.length === 0) {
     return;
   } else {
-    // remove markers and annotations from map/scene
+    vegetationMarkers.forEach(marker => {
+      marker.setMap(null)
+    })
   }
 }
 async function fetchVegetationEncroachments() {
-  if (fetchedFromServer) return;
   try {
     const response = await fetch(`/vegetationEncroachments/${id}`)
     if (!response.ok) {
@@ -596,7 +724,6 @@ async function fetchVegetationEncroachments() {
     //server should return empty array in none
     vegetationEncroachments = await response.json()
     fetchedFromServer = true;
-
   } catch (error) {
     console.error('Error fetching vegetation encroachments from the server', error.message);
   }
